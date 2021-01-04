@@ -1,9 +1,10 @@
 const fs = require('fs');
 const readline = require('readline');
 const {google} = require('googleapis');
+const discordie = require("discordie");
+const request = require("request");
 
-//GOOGLE API UNDERBELLY.
-//Use function incrementSongByID(audioID) to run.
+//GOOGLE API
 
 // If modifying these scopes, delete token.json.
 const SCOPES = ['https://www.googleapis.com/auth/spreadsheets'];
@@ -15,13 +16,21 @@ let incrementSongByID = function (songID){
     //loops prompt if google API not resolved.
     setTimeout(()=>{
         incrementSongByID(songID);
-        console.log("Awaiting to Process "+songID);
+        STDOUT("Awaiting to Process "+songID);
+    },1000);
+};
+
+let STDOUT = function (MSG){
+    //loops prompt if google API not resolved.
+    setTimeout(()=>{
+        STDOUT(songID);
+        console.log("Awaiting to Output "+songID);
     },1000);
 };
 
 // Load client secrets from a local file.
 fs.readFile('../credentials.json', (err, content) => {
-    if (err) return console.log('Error loading client secret file:', err);
+    if (err) return STDOUT('Error loading client secret file:', err);
     // Authorize a client with credentials, then call the Google Sheets API.
     //authorize(JSON.parse(content), locateSong, "_O3awC4mv4Q");
     incrementSongByID = function(audioID){
@@ -59,7 +68,7 @@ function getNewToken(oAuth2Client, callback) {
         access_type: 'offline',
         scope: SCOPES,
     });
-    console.log('Authorize this app by visiting this url:', authUrl);
+    STDOUT('Authorize this app by visiting this url:', authUrl);
     const rl = readline.createInterface({
         input: process.stdin,
         output: process.stdout,
@@ -72,7 +81,7 @@ function getNewToken(oAuth2Client, callback) {
             // Store the token to disk for later program executions
             fs.writeFile(TOKEN_PATH, JSON.stringify(token), (err) => {
                 if (err) return console.error(err);
-                console.log('Token stored to', TOKEN_PATH);
+                STDOUT('Token stored to', TOKEN_PATH);
             });
             callback(oAuth2Client);
         });
@@ -85,31 +94,55 @@ function getNewToken(oAuth2Client, callback) {
  * @param {google.auth.OAuth2} auth The authenticated Google OAuth client.
  */
 function locateSong(auth,audioID) {
+    STDOUT("SCANNING FOR "+audioID);
     const sheets = google.sheets({version: 'v4', auth});
-    //console.log("\nANYTHING\n"+JSON.stringify(sheets));
+    let ret = {val:false};
     sheets.spreadsheets.values.get({
         spreadsheetId: '1BFpRiSj_AS1qmwJHGODsWHeDJ-6kLQ3Sp51Uh2I9i3g',
         range: 'Wheres!A2:O',
     }, (err, res) => {
-        if (err) return console.log('The API returned an error: ' + err);
+        if (err) return STDOUT('The API returned an error: ' + err);
         const rows = res.data.values;
         if (rows.length) {
-            //console.log('Author - Song,\tID:');
             // Print columns                A and E, which correspond to indices 0 and 4.
             let i=2;
             rows.map((row) => {
-                //console.log(`${row[0]} - ${row[1]},\t${row[14]}`);
-                if(row[14] && row[14].indexOf(audioID) > -1){
-                    console.log(`Incrementing ${row[0]} - ${row[1]}`);
-                    return incrementSong(auth,i,[[((row[11]-0)+1)]],sheets);
+                if(row[14]) {
+                    let matching = false;
+                    if (row[14].indexOf(audioID) > -1) matching = true;
+                    let bits = row[14].split(",");
+                    for(let j in bits){
+                        if(audioID.includes(bits[j])) {
+                            matching = true;
+                            break;
+                        }
+                    }
+                    if (matching) {
+                        STDOUT(`Incrementing ${row[0]} - ${row[1]}`);
+                        ret.val = incrementSong(auth, i, [[((row[11] - 0) + 1)]], sheets);
+                    }
                 }
                 i++;
             });
-            //console.log('Failed to find '+audioID);
+
+            if(!ret.val){
+                STDOUT("Failed to find song with YouTube ID "+audioID+" ...\nRequesting Data from YouTube to continue search.");
+                addDatum(auth,audioID,sheets);
+            }
+            //('Failed to find '+audioID);
         } else {
-            console.log('Failed on '+audioID);
+            STDOUT('Failed on '+audioID);
         }
     });
+    return ret;
+}
+
+function addDatum(auth,audioID,sheets) {
+    let params={
+        uri: "https://www.youtube.com/watch?v="+audioID,
+        timeout: 2000,
+        followAllRedirects: true
+    };
 }
 
 function incrementSong(auth, position,newVal,sheets) {
@@ -152,27 +185,75 @@ function incrementSong(auth, position,newVal,sheets) {
     };
 
     try {
+        //STDOUT("SENDING REQUEST: "+JSON.stringify(request));
         const response = (sheets.spreadsheets.values.update(request)).data;
         const responseDate = (sheets.spreadsheets.values.update(requestDate)).data;
         // TODO: Change code below to process the `response` object:
-        console.log(JSON.stringify(response, null, 2));
+        //STDOUT(JSON.stringify(response));
+        return true;
     } catch (err) {
-        console.error(err);
+        STDOUT("ERROR:\T"+JSON.stringify(err));
     }
 
 }
 
 
 
+//DISCORD
 
 
+const client = new discordie({autoReconnect:true});
+const events = discordie.Events;
+
+var target = "..\\SonineDiscord.txt";
+const token = fs.readFileSync(target).toString();
+
+client.connect({token: token});
 
 
+//incrementSongByID("");
+
+client.Dispatcher.on(events.GATEWAY_READY, e => {
+    console.log("Connected to Discord as "+client.User.username);
+    STDOUT = function (msg) {
+        console.log(msg);
+        client.Channels.get("789915834385825802").sendMessage(JSON.stringify(msg));
+    }
+});
 
 
+/**
+ * State of the code:
+ * 51/01/03
+ * Basic functionality of increment action upon known URLs implemented
+ * Roadmap:  Use `request` to fetch titles of unknown youtube songs to automatically populate spreadsheet with new data.
+ */
+
+client.Dispatcher.on(events.MESSAGE_CREATE, e => {
+    //console.log("Received message: "+e.message.content);
+    let auth = e.message.author;
+    //console.log(e.message.author.id);
+    //use of this bot is for argo only.
+    if(auth.id !== "162952008712716288" && auth.id !=="263474950181093396")return;
+    //STDOUT("Made it through.");
+    let content = e.message.content;
+
+    //URL parsing
+    if(content.includes("v=")) {
+        content = content.substring(content.indexOf("v=") + 2);
+        if (content.includes("&")) {
+            content = content.substring(0, content.indexOf("&"));
+        }
+        try {
+            incrementSongByID(content);
+        } catch (e) {
+            STDOUT("error:\t" + JSON.stringify(e));
+        }
+    }
+    if(content.includes(".be/")){
+        content = content.substring(content.indexOf(".be/")+4);
+        incrementSongByID(content);
+    }
 
 
-
-incrementSongByID("ntG_EEfpasM");
-
-
+});
