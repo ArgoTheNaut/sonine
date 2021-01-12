@@ -167,8 +167,10 @@ function addDatum(auth,audioID,sheets,rows) {
         targetTitle = targetTitle.substring(0,targetTitle.indexOf("</title>"));
         //STDOUT("Found <title> at "+titleIDX);
         if(targetTitle.length<8)return STDOUT("Failed to find match.  Bad title.");
+        STDOUT("Unformatted target Title: `"+targetTitle+"`");
 
         let author;
+        targetTitle = targetTitle.replace("- YouTube","");
         targetTitle = targetTitle.substring(targetTitle.indexOf("-") + 1);
         if(targetTitle.includes("(")) {
             author = targetTitle.substring(targetTitle.indexOf("-")).trim();
@@ -197,7 +199,7 @@ function addDatum(auth,audioID,sheets,rows) {
             }
         }
 
-        STDOUT(targetTitle);
+        STDOUT("Formatted target title: `"+targetTitle+"`");
 
         if(matches.length>1){
             matches.sort((a,b)=>{
@@ -338,6 +340,7 @@ client.Dispatcher.on(events.MESSAGE_CREATE, e => {
         content = content.substring(content.indexOf("v=") + 2);
         if (content.includes("&")) {
             content = content.substring(0, content.indexOf("&"));
+            content = content.substring(0, content.indexOf("?"));
         }
         try {
             return incrementSongByID(content,e);
@@ -347,6 +350,8 @@ client.Dispatcher.on(events.MESSAGE_CREATE, e => {
     }
     if(content.includes(".be/")){
         content = content.substring(content.indexOf(".be/")+4);
+        content = content.substring(0, content.indexOf("&"));
+        content = content.substring(0, content.indexOf("?"));
         return incrementSongByID(content,e);
     }
 
