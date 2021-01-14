@@ -101,7 +101,6 @@ function getNewToken(oAuth2Client, callback) {
  */
 function locateSong(auth,audioID,e) {
     STDOUT("SCANNING FOR "+audioID);
-
     if(audioID.length<4) return STDOUT("Error: audio ID length less than 4 characters. Returning.");
     const sheets = google.sheets({version: 'v4', auth});
     let ret = {val:false};
@@ -111,35 +110,75 @@ function locateSong(auth,audioID,e) {
     }, (err, res) => {
         if (err) return STDOUT('The API returned an error: ' + err);
         const rows = res.data.values;
+
         if (rows.length) {
-            // Print columns                A and E, which correspond to indices 0 and 4.
+            // Iterate through objects.
             let i=2;
+            let INCREMENT = true;
+            let cont = e.message.content;
+            let modifier = cont.split(" ")[0].toLowerCase();
+            let ID = undefined;
+            if(modifier==="find" && modifier==="set"){
+                INCREMENT = false;
+                if(modifier==="set"){
+                    ID = cont.split(" ")[1];
+                    audioID=cont.split(" ")[2];
+                }
+            }
             rows.map((row) => {
+
+                //handle find-type messages
+                if(modifier==="find"){
+                    if(row.join(" - ").includes(cont.substring("find ".length))) STDOUT(row);
+                    return;
+                }
+
+
                 //check out a song only if the song has a defined URL or the audio ID input matches the song name
-                if(row[14] || (row[1].toLowerCase()===audioID.toLowerCase() && row[1].length > 4)) {
+                if(row[14] || (row[1].toLowerCase()===audioID.toLowerCase() && row[1].length > 4) || ID) {
                     //init song name equality, then proceed to compare against possible id's
                     let matching = row[1].toLowerCase()===audioID.toLowerCase();
-                    if(!matching) {
-                        if (row[14].indexOf(audioID) > -1) matching = true;
-                        let bits = row[14].split(",");
-                        for (let j in bits) {
-                            if (matching) break;
 
-                            if (audioID.includes(bits[j]) && bits[j].length > 4) {
-                                matching = true;
+                    //behavior for when using the SET modifier
+                    if(ID){
+                        matching=false;
+                        if(row[3].toLowerCase()===ID.toLowerCase()){
+                            STDOUT("Set Match!");
+                            STDOUT(row);
+
+                            //ADD YT ID TO OBJECT
+                            incrementSong(auth, i,[[row[11]-0+1]],sheets,audioID);
+                            return;
+                        }
+                    }else {
+                        //normal case behavior to locate matches
+                        if (!matching) {
+                            if (row[14].indexOf(audioID) > -1) matching = true;
+                            let bits = row[14].split(",");
+                            for (let j in bits) {
+                                if (matching) break;
+
+                                if (audioID.includes(bits[j]) && bits[j].length > 4) {
+                                    matching = true;
+                                }
                             }
                         }
                     }
                     if (matching) {
-                        STDOUT(`Incrementing ${row[0]} - ${row[1]}. New play count: ${row[11]-0+1}`);
-                        if(!e.message.deleted) e.message.delete();
-                        ret.val = incrementSong(auth, i, [[((row[11] - 0) + 1)]], sheets);
+                        if (INCREMENT) {
+                            STDOUT(`Incrementing ${row[0]} - ${row[1]}. New play count: ${row[11] - 0 + 1}`);
+                            if (!e.message.deleted) e.message.delete();
+                            ret.val = incrementSong(auth, i, [[((row[11] - 0) + 1)]], sheets);
+                        }else{
+                            STDOUT(row);
+                        }
                     }
+
                 }
                 i++;
             });
 
-            if(!ret.val){
+            if(!ret.val && INCREMENT){
                 STDOUT("Failed to find song with YouTube ID "+audioID+" ...\nRequesting Data from YouTube to continue search.");
                 addDatum(auth,audioID,sheets,rows);
             }
@@ -158,6 +197,7 @@ function addDatum(auth,audioID,sheets,rows) {
         timeout: 2000,
         followAllRedirects: true
     };
+
     request.get(params, function(error,response,body){
         if(error) return STDOUT(error);
         if(response.statusCode !== 200) return STDOUT("STATUS CODE: "+response.statusCode);
@@ -171,6 +211,7 @@ function addDatum(auth,audioID,sheets,rows) {
 
         let author;
         targetTitle = targetTitle.replace("- YouTube","");
+        targetTitle = endLimit(targetTitle,"|");
         targetTitle = targetTitle.substring(targetTitle.indexOf("-") + 1);
         if(targetTitle.includes("(")) {
             author = targetTitle.substring(targetTitle.indexOf("-")).trim();
@@ -182,12 +223,8 @@ function addDatum(auth,audioID,sheets,rows) {
                 authBlock=authBlock.substring(1);
             author = authBlock.replaceAll(" - Topic","").trim();
         }
-        if(targetTitle.includes("(")){
-            targetTitle = targetTitle.substring(0,targetTitle.indexOf("("));
-        }
-        if(targetTitle.includes("[")){
-            targetTitle = targetTitle.substring(0,targetTitle.indexOf("["));
-        }
+        targetTitle = endLimit(targetTitle,"(");
+        targetTitle = endLimit(targetTitle,"[");
         targetTitle = targetTitle.trim();
 
         let matches = [];
@@ -307,7 +344,6 @@ const token = fs.readFileSync(target).toString();
 client.connect({token: token});
 
 
-//incrementSongByID("");
 
 client.Dispatcher.on(events.GATEWAY_READY, e => {
     console.log("Connected to Discord as "+client.User.username);
@@ -318,6 +354,12 @@ client.Dispatcher.on(events.GATEWAY_READY, e => {
     }
 });
 
+function endLimit(content,tail){
+    if(content.includes(tail)){
+        return content.substring(0,content.indexOf(tail));
+    }
+    return content;
+}
 
 /**
  * State of the code:
@@ -335,13 +377,13 @@ client.Dispatcher.on(events.MESSAGE_CREATE, e => {
     //STDOUT("Made it through.");
     let content = e.message.content;
 
+
+
     //URL parsing
     if(content.includes("v=")) {
         content = content.substring(content.indexOf("v=") + 2);
-        if (content.includes("&")) {
-            content = content.substring(0, content.indexOf("&"));
-            content = content.substring(0, content.indexOf("?"));
-        }
+        content = endLimit(content,"&");
+        content = endLimit(content,"?");
         try {
             return incrementSongByID(content,e);
         } catch (e) {
@@ -350,8 +392,8 @@ client.Dispatcher.on(events.MESSAGE_CREATE, e => {
     }
     if(content.includes(".be/")){
         content = content.substring(content.indexOf(".be/")+4);
-        content = content.substring(0, content.indexOf("&"));
-        content = content.substring(0, content.indexOf("?"));
+        content = endLimit(content,"&");
+        content = endLimit(content,"?");
         return incrementSongByID(content,e);
     }
 
