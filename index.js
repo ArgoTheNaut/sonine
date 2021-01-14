@@ -112,24 +112,33 @@ function locateSong(auth,audioID,e) {
         const rows = res.data.values;
 
         if (rows.length) {
-            // Iterate through objects.
             let i=2;
+
+
+            //adjustments for FIND and SET inputs.
             let INCREMENT = true;
             let cont = e.message.content;
             let modifier = cont.split(" ")[0].toLowerCase();
             let ID = undefined;
-            if(modifier==="find" && modifier==="set"){
+            if(modifier==="find" || modifier==="set"){
                 INCREMENT = false;
                 if(modifier==="set"){
+                    //STDOUT("INVOKED SET");
+                    if(cont.split(" ").length!==3)
+                        return STDOUT("Expected SET commands to have 3 word inputs of the form `SET M-0420 oue123j0Epo`.");
                     ID = cont.split(" ")[1];
                     audioID=cont.split(" ")[2];
                 }
+            }else{
+                STDOUT(`No modifier: "${modifier}"`);
             }
+
+            // Iterate through objects.
             rows.map((row) => {
 
                 //handle find-type messages
                 if(modifier==="find"){
-                    if(row.join(" - ").includes(cont.substring("find ".length))) STDOUT(row);
+                    if(row.join(" - ").toLowerCase().includes(cont.substring("find ".length))) STDOUT(row);
                     return;
                 }
 
@@ -143,11 +152,11 @@ function locateSong(auth,audioID,e) {
                     if(ID){
                         matching=false;
                         if(row[3].toLowerCase()===ID.toLowerCase()){
-                            STDOUT("Set Match!");
+                            STDOUT("Set Match! Data will not be incremented.");
                             STDOUT(row);
 
                             //ADD YT ID TO OBJECT
-                            incrementSong(auth, i,[[row[11]-0+1]],sheets,audioID);
+                            incrementSong(auth, i,[[row[11]-0]],sheets,audioID);
                             return;
                         }
                     }else {
@@ -179,6 +188,7 @@ function locateSong(auth,audioID,e) {
             });
 
             if(!ret.val && INCREMENT){
+                if(cont.substring(0,4)==="find") return STDOUT("Not querying YouTube on `find`");
                 STDOUT("Failed to find song with YouTube ID "+audioID+" ...\nRequesting Data from YouTube to continue search.");
                 addDatum(auth,audioID,sheets,rows);
             }
