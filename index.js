@@ -234,6 +234,9 @@ function addDatum(auth,audioID,sheets,rows) {
         if(targetTitle.length<8)return STDOUT("Failed to find match.  Bad title.");
         STDOUT("Unformatted target Title: `"+targetTitle+"`");
 
+        while(targetTitle.includes("&#39;")){
+            targetTitle = targetTitle.replace("&#39;","'");
+        }
         let author;
         targetTitle = targetTitle.replace("- YouTube","");
         targetTitle = endLimit(targetTitle,"|");
