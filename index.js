@@ -32,6 +32,7 @@ let STDOUT = function (MSG){
     },1000);
 };
 
+let SONG_SPREADSHEET_ID = "1BFpRiSj_AS1qmwJHGODsWHeDJ-6kLQ3Sp51Uh2I9i3g";
 // Load client secrets from a local file.
 fs.readFile('../credentials.json', (err, content) => {
     if (err) return STDOUT('Error loading client secret file:', err);
@@ -94,7 +95,6 @@ function getNewToken(oAuth2Client, callback) {
 
 /**
  * Prints the names and majors of students in a sample spreadsheet:
- * @see https://docs.google.com/spreadsheets/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms/edit
  * @param {google.auth.OAuth2} auth The authenticated Google OAuth client.
  * @param audioID
  * @param e discord event message
@@ -105,43 +105,42 @@ function locateSong(auth,audioID,e) {
     const sheets = google.sheets({version: 'v4', auth});
     let ret = {val:false};
     sheets.spreadsheets.values.get({
-        spreadsheetId: '1BFpRiSj_AS1qmwJHGODsWHeDJ-6kLQ3Sp51Uh2I9i3g',
+        spreadsheetId: SONG_SPREADSHEET_ID,
         range: 'Wheres!A2:O',
     }, (err, res) => {
         if (err) return STDOUT('The API returned an error: ' + err);
         const rows = res.data.values;
 
-        let cont = e.message.content;
-        let tokens = cont.split(" ");
+        let content = e.message.content;
+        let discord_message_tokens = content.split(" ");
         if (rows.length) {
             let i=2;
 
             //adjustment for numerical multiplier
             let INCREMENTBY=1;
-            if(tokens.length>1){
-                if(!isNaN(tokens[0]-0)){
-                    let r = false;
-                    if(audioID.toLowerCase().trim() === cont.toLowerCase().trim()) {
-                        r = true;
-                    }
-                    INCREMENTBY = tokens.shift()-0;
-                    cont = tokens.join(" ");
-                    if(r) audioID = cont.toLowerCase().trim();
+            if(discord_message_tokens.length>1){
+                if(discord_message_tokens[0]-0){    //act only if first component is a number != 0
+                    let r = (audioID.toLowerCase().trim() === content.toLowerCase().trim());
+
+                    INCREMENTBY = discord_message_tokens.shift()-0;
+                    content = discord_message_tokens.join(" ");
+                    if(r) audioID = content.toLowerCase().trim();
                 }
             }
 
             //adjustments for FIND and SET inputs.
+
             let INCREMENT = true;
-            let modifier = cont.split(" ")[0].toLowerCase();
-            let ID = undefined;
+            let modifier = content.split(" ")[0].toLowerCase(); //first word of content
+            let SET_ID = undefined;
             if(modifier==="find" || modifier==="set"){
                 INCREMENT = false;
 
                 if(modifier==="set"){
-                    if(cont.split(" ").length!==3)
+                    if(content.split(" ").length!==3)
                         return STDOUT("Expected SET commands to have 3 word inputs of the form `SET M-0420 oue123j0Epo`.");
-                    ID = cont.split(" ")[1];
-                    audioID=cont.split(" ")[2];
+                    SET_ID = content.split(" ")[1];
+                    audioID=content.split(" ")[2];
                 }
 
             }
@@ -151,24 +150,27 @@ function locateSong(auth,audioID,e) {
 
                 //handle find-type messages
                 if(modifier==="find"){
-                    if(row.join(" - ").toLowerCase().includes(cont.substring("find ".length))) STDOUT(row);
+                    if(row.join(" - ").toLowerCase().includes(content.substring("find ".length))) STDOUT(row);
                     return;
                 }
 
                 //check out a song only if the song has a defined URL or the audio ID input matches the song name
-                if(row[14] || (row[1].toLowerCase()===audioID.toLowerCase() && row[1].length > 4) || ID) {
+                if(row[14] || (row[1].toLowerCase()===audioID.toLowerCase() && row[1].length > 4) || SET_ID) {
                     //init song name equality, then proceed to compare against possible id's
                     let matching = row[1].toLowerCase()===audioID.toLowerCase();
 
                     //behavior for when using the SET modifier
-                    if(ID){
+                    if(SET_ID){
                         matching=false;
-                        if(row[3].toLowerCase()===ID.toLowerCase()){
+                        if(row[3].toLowerCase()===SET_ID.toLowerCase()){
                             STDOUT("Set Match! Data will not be incremented.");
                             STDOUT(row);
 
                             //ADD YT ID TO OBJECT
-                            incrementSong(auth, i,[[row[11]-0]],sheets,URLtoID(audioID));
+                            audioID = URLtoID(audioID);
+                            if(row[14])
+                                audioID = row[14] + ","+audioID;
+                            incrementSong(auth, i,[[row[11]-0]],sheets, audioID);                           //TODO: don't clear old IDs
                             return;
                         }
                     }else {
@@ -201,7 +203,7 @@ function locateSong(auth,audioID,e) {
             });
 
             if(!ret.val && INCREMENT){
-                if(cont.substring(0,4)==="find") return STDOUT("Not querying YouTube on `find`");
+                if(content.substring(0,4)==="find") return STDOUT("Not querying YouTube on `find`");
                 STDOUT("Failed to find song with YouTube ID "+audioID+" ...\nRequesting Data from YouTube to continue search.");
                 addDatum(auth,audioID,sheets,rows);
             }
@@ -281,9 +283,21 @@ function addDatum(auth,audioID,sheets,rows) {
 
 function incrementSong(auth, position,newVal,sheets,audioID) {
 
+    //clean up redundancies in audioID during any audioID changes
+    if(audioID) {
+        let audioIDlist = audioID.split(",");
+        let uniqueIDs = {};
+        for (let i in audioIDlist) {
+            uniqueIDs[audioIDlist[i]] = true;
+        }
+        let keys = Object.keys(uniqueIDs);
+        audioID = keys.join(",");
+        if (keys.length < audioIDlist.length) STDOUT(`Unique IDs reduced from ${audioIDlist.length} to ${keys.length} IDs.`);
+    }
+
     const request = {
         // The ID of the spreadsheet to update.
-        spreadsheetId: '1BFpRiSj_AS1qmwJHGODsWHeDJ-6kLQ3Sp51Uh2I9i3g',  // TODO: Update placeholder value.
+        spreadsheetId: SONG_SPREADSHEET_ID,  // TODO: Update placeholder value.
 
         // The A1 notation of the values to update.
         range: 'L' + position,  // TODO: Update placeholder value.
@@ -301,17 +315,16 @@ function incrementSong(auth, position,newVal,sheets,audioID) {
     };
     const requestDate = {
         // The ID of the spreadsheet to update.
-        spreadsheetId: '1BFpRiSj_AS1qmwJHGODsWHeDJ-6kLQ3Sp51Uh2I9i3g',  // TODO: Update placeholder value.
+        spreadsheetId: SONG_SPREADSHEET_ID,
 
         // The A1 notation of the values to update.
-        range: 'H' + position,  // TODO: Update placeholder value.
+        range: 'H' + position,
 
         // How the input data should be interpreted.
-        valueInputOption: 'RAW',  // TODO: Update placeholder value.
+        valueInputOption: 'RAW',
 
         resource: {
             values: [[70*365.25+1.33330-1/24+Date.now()/1000/3600/24]],
-            // TODO: Add desired properties to the request body. All existing properties
             // will be replaced.
         },
 
@@ -319,17 +332,16 @@ function incrementSong(auth, position,newVal,sheets,audioID) {
     };
     const requestAudio = {
         // The ID of the spreadsheet to update.
-        spreadsheetId: '1BFpRiSj_AS1qmwJHGODsWHeDJ-6kLQ3Sp51Uh2I9i3g',  // TODO: Update placeholder value.
+        spreadsheetId: SONG_SPREADSHEET_ID,
 
         // The A1 notation of the values to update.
-        range: 'O' + position,  // TODO: Update placeholder value.
+        range: 'O' + position,
 
         // How the input data should be interpreted.
-        valueInputOption: 'RAW',  // TODO: Update placeholder value.
+        valueInputOption: 'RAW',
 
         resource: {
             values: [[audioID]],
-            // TODO: Add desired properties to the request body. All existing properties
             // will be replaced.
         },
 

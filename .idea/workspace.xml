@@ -21,10 +21,18 @@
   <component name="PropertiesComponent">
     <property name="RunOnceActivity.OpenProjectViewOnStart" value="true" />
     <property name="WebServerToolWindowFactoryState" value="false" />
-    <property name="last_opened_file_path" value="$PROJECT_DIR$" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$/index.js" />
     <property name="nodejs_package_manager_path" value="npm" />
     <property name="ts.external.directory.path" value="C:\Program Files\JetBrains\WebStorm 2020.2.1\plugins\JavaScriptLanguage\jsLanguageServicesImpl\external" />
     <property name="vue.rearranger.settings.migration" value="true" />
+  </component>
+  <component name="RunManager">
+    <configuration default="true" type="NodeJSConfigurationType" path-to-js-file="$PROJECT_DIR$/index.js">
+      <method v="2" />
+    </configuration>
+    <configuration name="index.js" type="NodeJSConfigurationType" nameIsGenerated="true" path-to-js-file="index.js" working-dir="$PROJECT_DIR$">
+      <method v="2" />
+    </configuration>
   </component>
   <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
   <component name="TaskManager">
@@ -37,11 +45,40 @@
       <workItem from="1609714060015" duration="21279000" />
       <workItem from="1610243887230" duration="1204000" />
       <workItem from="1610493565238" duration="7214000" />
-      <workItem from="1610768866481" duration="3112000" />
+      <workItem from="1610768866481" duration="3747000" />
+      <workItem from="1611798426188" duration="1201000" />
+      <workItem from="1612489087979" duration="1229000" />
+      <workItem from="1620783672289" duration="2879000" />
     </task>
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
+  </component>
+  <component name="WindowStateProjectService">
+    <state x="445" y="195" key="#com.intellij.execution.impl.EditConfigurationsDialog" timestamp="1620784930199">
+      <screen x="62" y="0" width="1858" height="1080" />
+    </state>
+    <state x="445" y="195" key="#com.intellij.execution.impl.EditConfigurationsDialog/62.0.1858.1080/-1600.169.1600.900/1920.3.1920.1080@62.0.1858.1080" timestamp="1620784930199" />
+    <state x="771" y="295" key="FileChooserDialogImpl" timestamp="1620784901487">
+      <screen x="62" y="0" width="1858" height="1080" />
+    </state>
+    <state x="771" y="295" key="FileChooserDialogImpl/62.0.1858.1080/-1600.169.1600.900/1920.3.1920.1080@62.0.1858.1080" timestamp="1620784901487" />
+    <state width="1837" height="307" key="GridCell.Tab.0.bottom" timestamp="1620786541526">
+      <screen x="62" y="0" width="1858" height="1080" />
+    </state>
+    <state width="1837" height="307" key="GridCell.Tab.0.bottom/62.0.1858.1080/-1600.169.1600.900/1920.3.1920.1080@62.0.1858.1080" timestamp="1620786541526" />
+    <state width="1837" height="307" key="GridCell.Tab.0.center" timestamp="1620786541525">
+      <screen x="62" y="0" width="1858" height="1080" />
+    </state>
+    <state width="1837" height="307" key="GridCell.Tab.0.center/62.0.1858.1080/-1600.169.1600.900/1920.3.1920.1080@62.0.1858.1080" timestamp="1620786541525" />
+    <state width="1837" height="307" key="GridCell.Tab.0.left" timestamp="1620786541525">
+      <screen x="62" y="0" width="1858" height="1080" />
+    </state>
+    <state width="1837" height="307" key="GridCell.Tab.0.left/62.0.1858.1080/-1600.169.1600.900/1920.3.1920.1080@62.0.1858.1080" timestamp="1620786541525" />
+    <state width="1837" height="307" key="GridCell.Tab.0.right" timestamp="1620786541525">
+      <screen x="62" y="0" width="1858" height="1080" />
+    </state>
+    <state width="1837" height="307" key="GridCell.Tab.0.right/62.0.1858.1080/-1600.169.1600.900/1920.3.1920.1080@62.0.1858.1080" timestamp="1620786541525" />
   </component>
 </project>
