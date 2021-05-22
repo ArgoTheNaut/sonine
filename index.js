@@ -4,6 +4,24 @@ const {google} = require('googleapis');
 const discordie = require("discordie");
 const request = require("request");
 
+//spreadsheet row values
+const AUTHOR_ROW = 0;
+const SONGNAME_ROW = 1;
+const ALBUM_ROW = 2;
+const MSONGID_ROW = 3;
+const GENRE_ROW = 4;
+const BPM_ROW = 5;
+const ALBUMPOS_ROW = 6;
+const LASTLISTENED_ROW = 7;
+
+
+
+const PLAYS_ROW = 11;
+
+
+const SONGID_ROW = 14;
+
+
 String.prototype.replaceAll = function(search, replacement) {
     return this.replace(new RegExp(search, "g"), replacement);
 };
@@ -24,7 +42,7 @@ let incrementSongByID = function (songID,e){
     },1000);
 };
 
-let STDOUT = function (MSG){
+let STDOUT = function (songID){
     //loops prompt if google API not resolved.
     setTimeout(()=>{
         STDOUT(songID);
@@ -140,7 +158,7 @@ function locateSong(auth,audioID,e) {
                     if(content.split(" ").length!==3)
                         return STDOUT("Expected SET commands to have 3 word inputs of the form `SET M-0420 oue123j0Epo`.");
                     SET_ID = content.split(" ")[1];
-                    audioID=content.split(" ")[2];
+                    audioID= content.split(" ")[2];
                 }
 
             }
@@ -155,32 +173,33 @@ function locateSong(auth,audioID,e) {
                 }
 
                 //check out a song only if the song has a defined URL or the audio ID input matches the song name
-                if(row[14] || (row[1].toLowerCase()===audioID.toLowerCase() && row[1].length > 4) || SET_ID) {
+                if(row[SONGID_ROW] || (row[SONGNAME_ROW].toLowerCase()===audioID.toLowerCase() && row[SONGNAME_ROW].length > 4) || SET_ID) {
                     //init song name equality, then proceed to compare against possible id's
-                    let matching = row[1].toLowerCase()===audioID.toLowerCase();
+                    let matching = row[SONGNAME_ROW].toLowerCase()===audioID.toLowerCase();
 
                     //behavior for when using the SET modifier
                     if(SET_ID){
                         matching=false;
-                        if(row[3].toLowerCase()===SET_ID.toLowerCase()){
+                        if(row[MSONGID_ROW].toLowerCase()===SET_ID.toLowerCase()){
                             STDOUT("Set Match! Data will not be incremented.");
                             STDOUT(row);
 
                             //ADD YT ID TO OBJECT
                             audioID = URLtoID(audioID);
-                            if(row[14])
-                                audioID = row[14] + ","+audioID;
-                            incrementSong(auth, i,[[row[11]-0]],sheets, audioID);                           //TODO: don't clear old IDs
+                            if(row[SONGID_ROW])
+                                audioID = row[SONGID_ROW] + ","+audioID;
+                            incrementSong(auth, i,[[row[PLAYS_ROW]-0]],sheets, audioID);                           //TODO: don't clear old IDs
                             return;
                         }
                     }else {
                         //normal case behavior to locate matches
                         if (!matching) {
-                            if (row[14].indexOf(audioID) > -1) matching = true;
-                            let bits = row[14].split(",");
+                            if (row[SONGID_ROW].indexOf(audioID) > -1) matching = true;
+                            let bits = row[SONGID_ROW].split(",");
                             for (let j in bits) {
                                 if (matching) break;
 
+                                // noinspection JSUnfilteredForInLoop
                                 if (audioID.includes(bits[j]) && bits[j].length > 4) {
                                     matching = true;
                                 }
@@ -190,9 +209,9 @@ function locateSong(auth,audioID,e) {
 
                     if (matching) {
                         if (INCREMENT) {
-                            STDOUT(`Incrementing ${row[0]} - ${row[1]} by ${INCREMENTBY}. New play count: ${row[11] - 0 + INCREMENTBY}`);
+                            STDOUT(`Incrementing ${row[AUTHOR_ROW]} - ${row[SONGNAME_ROW]} by ${INCREMENTBY}. New play count: ${row[PLAYS_ROW] - 0 + INCREMENTBY}`);
                             if (!e.message.deleted) e.message.delete();
-                            ret.val = incrementSong(auth, i, [[((row[11] - 0) + INCREMENTBY)]], sheets);
+                            ret.val = incrementSong(auth, i, [[((row[PLAYS_ROW] - 0) + INCREMENTBY)]], sheets);
                         }else{
                             STDOUT(row);
                         }
@@ -237,49 +256,89 @@ function addDatum(auth,audioID,sheets,rows) {
         while(targetTitle.includes("&#39;")){
             targetTitle = targetTitle.replace("&#39;","'");
         }
-        let author;
+
+        let author = targetTitle;
+
         targetTitle = targetTitle.replace("- YouTube","");
-        targetTitle = endLimit(targetTitle,"|");
+        //targetTitle = endLimit(targetTitle,"|");
         targetTitle = targetTitle.substring(targetTitle.indexOf("-") + 1);
         if(targetTitle.includes("(")) {
-            author = targetTitle.substring(targetTitle.indexOf("-")).trim();
+            //author = targetTitle.substring(targetTitle.indexOf("-")).trim();
         }else{
             let blockStart = body.indexOf("ytd-channel-name");
             let authBlock = body.substring(blockStart);
             authBlock = authBlock.substring(0,authBlock.indexOf("</a>"));
             while(authBlock.includes(">"))
                 authBlock=authBlock.substring(1);
-            author = authBlock.replaceAll(" - Topic","").trim();
+            //author = authBlock.replaceAll(" - Topic","").trim();
         }
         targetTitle = endLimit(targetTitle,"(");
         targetTitle = endLimit(targetTitle,"[");
-        targetTitle = targetTitle.trim();
+        targetTitle = targetTitle.trim().toLowerCase();
 
         let matches = [];
+
         for(let i in rows){
-            if(rows[i][0].length<1)continue;
-            if(targetTitle.toLowerCase().indexOf(rows[i][1].toLowerCase()) === 0){
-                matches.push(i);
-                STDOUT("Match at index "+i+JSON.stringify(rows[i]));
+            if(rows[i][AUTHOR_ROW].length<1)continue;
+            // noinspection JSUnfilteredForInLoop
+            let songNameWords = rows[i][SONGNAME_ROW].toLowerCase().split(" ");
+            for(let j in songNameWords){
+                if(songNameWords[j]==="the"
+                || songNameWords[j]==="a"
+                || songNameWords[j]==="in"
+                )continue;
+                if(songNameWords[j].length > 2 && (targetTitle.includes(songNameWords[j]))){
+                    matches.push(i);
+                    STDOUT(`Similarity at index ${i} ${JSON.stringify(rows[i])}\r\n${targetTitle} contains ${songNameWords[j]}\r\n\r\n`);
+                    break; //should break j loop
+                }
             }
         }
 
-        STDOUT("Formatted target title: `"+targetTitle+"`");
+        STDOUT("Formatted:\r\n author: `"+author+"`\r\ntitle: `"+targetTitle+"`");
 
         if(matches.length>1){
-            matches.sort((a,b)=>{
-                return rows[b][1].length - rows[a][1].length + rows[b][0].toLowerCase()===author.toLowerCase();
+            for(let aMatch in matches){
+                let idx = matches[aMatch];
+                let songNameWords = rows[matches[aMatch]][SONGNAME_ROW].toLowerCase().split(" ");
+                matches[aMatch] = {idx:idx};
+                matches[aMatch].commonSongNameTerms = 0;
+                for(let j in songNameWords){
+                    if(targetTitle.includes(songNameWords[j]))
+                        matches[aMatch].commonSongNameTerms++;
+                }
+                if(author.toLowerCase().includes(rows[idx][AUTHOR_ROW].toLowerCase())){
+                    matches[aMatch].commonSongNameTerms+=15;
+                }else{
+                    //STDOUT(`${author} does not contain ${rows[idx][AUTHOR_ROW]}`);
+                }
+            }
+
+            matches.sort((a,b)=>{   //todo: improve method of determining closest match
+                console.log(`Comparing ${rows[b.idx][SONGNAME_ROW]}(${b.commonSongNameTerms}) vs ${rows[a.idx][SONGNAME_ROW]}(${a.commonSongNameTerms})`);
+                return b.commonSongNameTerms - a.commonSongNameTerms;// + ((rows[b][AUTHOR_ROW].toLowerCase()===author.toLowerCase()) ? 69:0);
             });
-            STDOUT(`Closest match: ${rows[matches[0]][0]} - ${rows[matches[0]][1]}`);
-            matches = [matches[0]];
+            STDOUT(`Closest match: ${rows[matches[0].idx][AUTHOR_ROW]} - ${rows[matches[0].idx][SONGNAME_ROW]}`);
+
+            if(matches[0].commonSongNameTerms < rows[matches[0].idx][SONGNAME_ROW].split(" ").length/2){
+                STDOUT("INSUFFICIENT CONFIDENCE IN ANSWER.  PLEASE USE SET TO MANUALLY ADD THIS DATUM.");
+                STDOUT(JSON.stringify(rows[matches[0].idx]));
+                return;
+            }
+
+            matches = [matches[0].idx];
         }
 
         if(matches.length === 1){
             let i = matches[0]-0;
             let audioIDChange;
-            if(rows[i][14]===undefined) audioIDChange=audioID;
-            else audioIDChange = rows[i][14]+","+audioID;
-            incrementSong(auth, i+2,[[rows[i][11]-0+1]],sheets,audioIDChange);
+            if(rows[i][SONGID_ROW]===undefined) audioIDChange=audioID;
+            else audioIDChange = rows[i][SONGID_ROW]+","+audioID;
+            incrementSong(auth, i+2,[[rows[i][PLAYS_ROW]-0+1]],sheets,audioIDChange);
+        }
+
+        if(matches.length === 0){
+            STDOUT("No matches found");
         }
     });
 }
@@ -300,17 +359,16 @@ function incrementSong(auth, position,newVal,sheets,audioID) {
 
     const request = {
         // The ID of the spreadsheet to update.
-        spreadsheetId: SONG_SPREADSHEET_ID,  // TODO: Update placeholder value.
+        spreadsheetId: SONG_SPREADSHEET_ID,
 
         // The A1 notation of the values to update.
-        range: 'L' + position,  // TODO: Update placeholder value.
+        range: 'L' + position,
 
         // How the input data should be interpreted.
-        valueInputOption: 'RAW',  // TODO: Update placeholder value.
+        valueInputOption: 'RAW',
 
         resource: {
             values: newVal,
-            // TODO: Add desired properties to the request body. All existing properties
             // will be replaced.
         },
 
@@ -344,8 +402,8 @@ function incrementSong(auth, position,newVal,sheets,audioID) {
         valueInputOption: 'RAW',
 
         resource: {
-            values: [[audioID]],
             // will be replaced.
+            values: [[audioID]],
         },
 
         auth: auth,
@@ -353,8 +411,8 @@ function incrementSong(auth, position,newVal,sheets,audioID) {
 
     try {
         //STDOUT("SENDING REQUEST: "+JSON.stringify(request));
-        const response = (sheets.spreadsheets.values.update(request)).data;
-        const responseDate = (sheets.spreadsheets.values.update(requestDate)).data;
+        const response = sheets.spreadsheets.values.update(request).data;
+        const responseDate = sheets.spreadsheets.values.update(requestDate).data;
         if(audioID){
             sheets.spreadsheets.values.update(requestAudio);
             STDOUT("ADDED SONG ID");
@@ -382,14 +440,34 @@ const token = fs.readFileSync(target).toString();
 client.connect({token: token});
 
 
-
+let STDOUTQUEUE = [];
 client.Dispatcher.on(events.GATEWAY_READY, e => {
     console.log("Connected to Discord as "+client.User.username);
     STDOUT = function (msg) {
         console.log(msg);
-        if(typeof(msg)==="object")msg = JSON.stringify(msg);
-        client.Channels.get("789915834385825802").sendMessage(msg);
-    }
+        if(typeof(msg)==="object") msg = JSON.stringify(msg);
+        STDOUTQUEUE.push(msg);
+    };
+
+    setInterval(() => {
+        if(STDOUTQUEUE.length){
+            let msg = STDOUTQUEUE.shift();
+            while(msg.length < 2000 && STDOUTQUEUE.length){
+                msg += "\r\n\r\n"+STDOUTQUEUE.shift();
+            }
+
+            if(msg.length>2000){
+                let remnant = msg.substring(2000);
+                while(remnant.length){
+                    client.Channels.get("789915834385825802").sendMessage(msg.substring(0,2000));
+                    msg = remnant;
+                    remnant = msg.substring(2000);
+                }
+            }
+            client.Channels.get("789915834385825802").sendMessage(msg);
+        }
+    }, 500);
+    STDOUT("HELLO THERE");
 });
 
 
