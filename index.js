@@ -172,10 +172,11 @@ function locateSong(auth,audioID,e) {
                     return;
                 }
 
+                //init song name equality
+                let matching = row[SONGNAME_ROW].toLowerCase()===audioID.toLowerCase() || row[MSONGID_ROW]===audioID.toUpperCase();
+
                 //check out a song only if the song has a defined URL or the audio ID input matches the song name
-                if(row[SONGID_ROW] || (row[SONGNAME_ROW].toLowerCase()===audioID.toLowerCase() && row[SONGNAME_ROW].length > 4) || SET_ID) {
-                    //init song name equality, then proceed to compare against possible id's
-                    let matching = row[SONGNAME_ROW].toLowerCase()===audioID.toLowerCase();
+                if(row[SONGID_ROW] || matching || SET_ID) {
 
                     //behavior for when using the SET modifier
                     if(SET_ID){
@@ -216,7 +217,6 @@ function locateSong(auth,audioID,e) {
                             STDOUT(row);
                         }
                     }
-
                 }
                 i++;
             });
@@ -298,17 +298,17 @@ function addDatum(auth,audioID,sheets,rows) {
         STDOUT("Formatted:\r\n author: `"+author+"`\r\ntitle: `"+targetTitle+"`");
 
         if(matches.length>1){
-            for(let aMatch in matches){
-                let idx = matches[aMatch];
-                let songNameWords = rows[matches[aMatch]][SONGNAME_ROW].toLowerCase().split(" ");
-                matches[aMatch] = {idx:idx};
-                matches[aMatch].commonSongNameTerms = 0;
+            for(let i in matches){
+                let idx = matches[i];
+                let songNameWords = rows[matches[i]][SONGNAME_ROW].toLowerCase().split(" ");
+                matches[i] = {idx:idx};
+                matches[i].commonSongNameTerms = 0;
                 for(let j in songNameWords){
                     if(targetTitle.includes(songNameWords[j]))
-                        matches[aMatch].commonSongNameTerms++;
+                        matches[i].commonSongNameTerms++;
                 }
                 if(author.toLowerCase().includes(rows[idx][AUTHOR_ROW].toLowerCase())){
-                    matches[aMatch].commonSongNameTerms+=15;
+                    matches[i].commonSongNameTerms+=15;
                 }else{
                     //STDOUT(`${author} does not contain ${rows[idx][AUTHOR_ROW]}`);
                 }
@@ -466,7 +466,7 @@ client.Dispatcher.on(events.GATEWAY_READY, e => {
             }
             client.Channels.get("789915834385825802").sendMessage(msg);
         }
-    }, 500);
+    }, 250);
     STDOUT("HELLO THERE");
 });
 
