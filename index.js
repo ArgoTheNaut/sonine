@@ -136,9 +136,14 @@ function locateSong(auth,audioID,e) {
 
             //adjustment for numerical multiplier
             let INCREMENTBY=1;
+            // console.log("Discord Message Tokens:  ",discord_message_tokens);
+            // console.log("Discord Message Token 0: ",discord_message_tokens[0]);
+            // console.log("Char at [1]:             ",discord_message_tokens[0][1]);
             if(discord_message_tokens.length>1){
                 if(discord_message_tokens[0]-0){    //act only if first component is a number != 0
+
                     let r = (audioID.toLowerCase().trim() === content.toLowerCase().trim());
+                    //console.log("r: ",r);
 
                     INCREMENTBY = discord_message_tokens.shift()-0;
                     content = discord_message_tokens.join(" ");
@@ -254,11 +259,14 @@ function addDatum(auth,audioID,sheets,rows) {
         STDOUT("Unformatted target Title: `"+targetTitle+"`");
 
         while(targetTitle.includes("&#39;")){
-            targetTitle = targetTitle.replace("&#39;","'");
+            targetTitle = targetTitle.replace("&#39;","'").toLowerCase();
         }
 
-        let author = targetTitle;
+        let unformattedTitle = targetTitle;
 
+
+
+        //format hypothetical "target" title
         targetTitle = targetTitle.replace("- YouTube","");
         //targetTitle = endLimit(targetTitle,"|");
         targetTitle = targetTitle.substring(targetTitle.indexOf("-") + 1);
@@ -276,6 +284,8 @@ function addDatum(auth,audioID,sheets,rows) {
         targetTitle = endLimit(targetTitle,"[");
         targetTitle = targetTitle.trim().toLowerCase();
 
+
+
         let matches = [];
 
         for(let i in rows){
@@ -287,31 +297,42 @@ function addDatum(auth,audioID,sheets,rows) {
                 || songNameWords[j]==="a"
                 || songNameWords[j]==="in"
                 )continue;
-                if(songNameWords[j].length > 2 && (targetTitle.includes(songNameWords[j]))){
+                console.log(`Testing ${unformattedTitle} for ${songNameWords[j]}`);
+                if(songNameWords[j].length > 2 && unformattedTitle.includes(songNameWords[j])){
                     matches.push(i);
-                    STDOUT(`Similarity at index ${i} ${JSON.stringify(rows[i])}\r\n${targetTitle} contains ${songNameWords[j]}\r\n\r\n`);
                     break; //should break j loop
                 }
             }
         }
 
-        STDOUT("Formatted:\r\n author: `"+author+"`\r\ntitle: `"+targetTitle+"`");
+        STDOUT("Formatted:\r\n author: `"+unformattedTitle+"`\r\ntitle: `"+targetTitle+"`");
+        STDOUT(`Found ${matches.length} potential matches`);
 
         if(matches.length>1){
-            for(let i in matches){
+            for(let i in matches){  //fuzzy evaluation of closest match
                 let idx = matches[i];
                 let songNameWords = rows[matches[i]][SONGNAME_ROW].toLowerCase().split(" ");
                 matches[i] = {idx:idx};
                 matches[i].commonSongNameTerms = 0;
                 for(let j in songNameWords){
-                    if(targetTitle.includes(songNameWords[j]))
+                    if(unformattedTitle.includes(songNameWords[j]))
                         matches[i].commonSongNameTerms++;
                 }
-                if(author.toLowerCase().includes(rows[idx][AUTHOR_ROW].toLowerCase())){
+
+                if(unformattedTitle.includes(rows[idx][SONGNAME_ROW].toLowerCase())){
+                    matches[i].commonSongNameTerms+=20;
+                }
+                if(unformattedTitle.includes(rows[idx][AUTHOR_ROW].toLowerCase())){
                     matches[i].commonSongNameTerms+=15;
                 }else{
                     //STDOUT(`${author} does not contain ${rows[idx][AUTHOR_ROW]}`);
                 }
+                //Where the album title exists and is in the song title, add heavy weight to such cases
+                if(rows[idx][ALBUM_ROW].toLowerCase().length && unformattedTitle.includes(rows[idx][ALBUM_ROW].toLowerCase())){
+                    matches[i].commonSongNameTerms+=25;
+                }
+                STDOUT(`Similarity score: ${matches[i].commonSongNameTerms}. Similarity at index ${idx} ${JSON.stringify(rows[idx])}.`);
+
             }
 
             matches.sort((a,b)=>{   //todo: improve method of determining closest match
@@ -332,6 +353,7 @@ function addDatum(auth,audioID,sheets,rows) {
         if(matches.length === 1){
             let i = matches[0]-0;
             let audioIDChange;
+            STDOUT(`Incrementing best match: ${JSON.stringify(rows[i])}.`);
             if(rows[i][SONGID_ROW]===undefined) audioIDChange=audioID;
             else audioIDChange = rows[i][SONGID_ROW]+","+audioID;
             incrementSong(auth, i+2,[[rows[i][PLAYS_ROW]-0+1]],sheets,audioIDChange);
