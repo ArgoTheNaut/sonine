@@ -253,13 +253,13 @@ function addDatum(auth,audioID,sheets,rows) {
         //console.log(body);
         let titleIDX = body.indexOf("<title>")+"<title>".length;
         let targetTitle = body.substring(titleIDX);
-        targetTitle = targetTitle.substring(0,targetTitle.indexOf("</title>"));
+        targetTitle = targetTitle.substring(0,targetTitle.indexOf("</title>")).toLowerCase();
         //STDOUT("Found <title> at "+titleIDX);
         if(targetTitle.length<8)return STDOUT("Failed to find match.  Bad title.");
         STDOUT("Unformatted target Title: `"+targetTitle+"`");
 
         while(targetTitle.includes("&#39;")){
-            targetTitle = targetTitle.replace("&#39;","'").toLowerCase();
+            targetTitle = targetTitle.replace("&#39;","'");
         }
 
         let unformattedTitle = targetTitle;
