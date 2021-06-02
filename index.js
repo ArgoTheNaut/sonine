@@ -331,7 +331,10 @@ function addDatum(auth,audioID,sheets,rows) {
                 if(rows[idx][ALBUM_ROW].toLowerCase().length && unformattedTitle.includes(rows[idx][ALBUM_ROW].toLowerCase())){
                     matches[i].commonSongNameTerms+=25;
                 }
-                STDOUT(`Similarity score: ${matches[i].commonSongNameTerms}. Similarity at index ${idx} ${JSON.stringify(rows[idx])}.`);
+
+                //constrain to >1 terms to try to filter output stream quality a little bit
+                if(matches[i].commonSongNameTerms > 1)
+                    STDOUT(`Similarity score: ${matches[i].commonSongNameTerms}. Similarity at index ${idx} ${JSON.stringify(rows[idx])}.`);
 
             }
 
