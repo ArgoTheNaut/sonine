@@ -17,8 +17,6 @@ const LASTLISTENED_ROW = 7;
 
 
 const PLAYS_ROW = 11;
-
-
 const SONGID_ROW = 14;
 
 
