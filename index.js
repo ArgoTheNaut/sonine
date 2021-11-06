@@ -95,7 +95,7 @@ function getNewToken(oAuth2Client, callback) {
         access_type: 'offline',
         scope: SCOPES,
     });
-    STDOUT('Authorize this app by visiting this url:', authUrl);
+    STDOUT(`Authorize this app by visiting this url: ${authUrl}`);
     const rl = readline.createInterface({
         input: process.stdin,
         output: process.stdout,
@@ -108,7 +108,7 @@ function getNewToken(oAuth2Client, callback) {
             // Store the token to disk for later program executions
             fs.writeFile(TOKEN_PATH, JSON.stringify(token), (err) => {
                 if (err) return console.error(err);
-                STDOUT('Token stored to', TOKEN_PATH);
+                STDOUT(`Token stored to ${TOKEN_PATH}`);
             });
             callback(oAuth2Client);
         });
