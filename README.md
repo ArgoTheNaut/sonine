@@ -1,2 +1,4 @@
 # sonine
- First attempt to meddle with Google Sheets API to interface to S-009
+Discord bot frontend that increments select spreadsheet database values based on user commands.
+
+
