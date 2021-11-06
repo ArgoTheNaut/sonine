@@ -52,8 +52,12 @@ let STDOUT = function (songID){
 
 let SONG_SPREADSHEET_ID = "1BFpRiSj_AS1qmwJHGODsWHeDJ-6kLQ3Sp51Uh2I9i3g";
 // Load client secrets from a local file.
-fs.readFile('../credentials.json', (err, content) => {
-    if (err) return STDOUT('Error loading client secret file:', err);
+fs.readFile('../tokens/googleCredentials.json', (err, content) => {
+    if (err) {
+        STDOUT('Error loading client secret file:');
+        STDOUT(JSON.stringify(err));
+        return
+    }
     // Authorize a client with credentials, then call the Google Sheets API.
     //authorize(JSON.parse(content), locateSong, "_O3awC4mv4Q");
     incrementSongByID = function(audioID,e){
