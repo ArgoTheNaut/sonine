@@ -7,7 +7,7 @@ sonine is a Discord bot frontend that increments select spreadsheet database val
 1. Clone the repository locally
 2. Run the powershell script initialize-NodeModules.ps1
 3. Download the discord API token to sonine/../tokens/SonineDiscord.txt
-4. 
+4. [Download the Google API token to sonine/../tokens/googleCredentials.json](https://developers.google.com/workspace/guides/create-credentials)
 
 
 
