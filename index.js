@@ -81,7 +81,6 @@ fs.readFile('../tokens/googleCredentials.json', (err, content) => {
         return
     }
     // Authorize a client with credentials, then call the Google Sheets API.
-    //authorize(JSON.parse(content), locateSong, "_O3awC4mv4Q");
     incrementSongByID = function(audioID,e){
         authorize(JSON.parse(content),locateSong,audioID,e);
     };
@@ -545,8 +544,6 @@ client.Dispatcher.on(events.MESSAGE_CREATE, e => {
     if(auth.id !== "162952008712716288" && auth.id !=="263474950181093396")return;
     //STDOUT("Made it through.");
     let content = e.message.content;
-
-
 
     //URL parsing
 
