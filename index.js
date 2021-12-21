@@ -50,6 +50,12 @@ String.prototype.replaceAll = function(search, replacement) {
  *  GOOGLE API  *
  ****************/
 
+//"mutex" indicating that no other function should push/pull the current data in the job batch
+let batchMutex = false;
+
+//batch of jobs that should be executed regularly whenever the job batch is not empty
+let jobBatch = [ ];
+
 // If modifying these scopes, delete token.json.
 const SCOPES = ['https://www.googleapis.com/auth/spreadsheets'];
 // The file token.json stores the user's access and refresh tokens, and is
@@ -409,66 +415,66 @@ function incrementSong(auth, position,newVal,sheets,audioID) {
         if (keys.length < audioIDlist.length) STDOUT(`Unique IDs reduced from ${audioIDlist.length} to ${keys.length} IDs.`);
     }
 
-    const request = {
-        // The ID of the spreadsheet to update.
+    let batchRequestBody = {
         spreadsheetId: SONG_SPREADSHEET_ID,
-
-        // The A1 notation of the values to update.
-        range: 'L' + position,
-
-        // How the input data should be interpreted.
-        valueInputOption: 'RAW',
-
         resource: {
-            values: newVal,
-            // will be replaced.
-        },
+            valueInputOption: 'RAW',                // How the input data should be interpreted.
+            data: [
+                //new play count
+                {
+                    range: 'L' + position,                  // The A1 notation of the values to update.
+                    values: newVal
+                },
 
+                //new request date
+                {
+                    range: 'H' + position,
+                    values: [[70*365.25+1.33330-1/24+Date.now()/1000/3600/24]]
+                },
+
+                //new audio ID list
+                {
+                    range: 'O' + position,
+                    values: [[audioID]]
+                }
+            ],
+        },
+        auth: auth,
+    };
+
+    const request = {
+        spreadsheetId: SONG_SPREADSHEET_ID,     // The ID of the spreadsheet to update.
+        range: 'L' + position,                  // The A1 notation of the values to update.
+        valueInputOption: 'RAW',                // How the input data should be interpreted.
+        resource: {values: newVal},             //data payload
         auth: auth,
     };
     const requestDate = {
-        // The ID of the spreadsheet to update.
         spreadsheetId: SONG_SPREADSHEET_ID,
-
-        // The A1 notation of the values to update.
         range: 'H' + position,
-
-        // How the input data should be interpreted.
         valueInputOption: 'RAW',
-
-        resource: {
-            values: [[70*365.25+1.33330-1/24+Date.now()/1000/3600/24]],
-            // will be replaced.
-        },
-
+        resource: {values: [[70*365.25+1.33330-1/24+Date.now()/1000/3600/24]],},
         auth: auth,
     };
 
     //object to update value of audio ID data
     const requestAudio = {
-        // The ID of the spreadsheet to update.
         spreadsheetId: SONG_SPREADSHEET_ID,
-
-        // The A1 notation of the values to update.
         range: 'O' + position,
-
-        // How the input data should be interpreted.
         valueInputOption: 'RAW',
-
-        resource: {
-            // will be replaced.
-            values: [[audioID]],
-        },
-
+        resource: {values: [[audioID]],},
         auth: auth,
     };
 
     try {
-        //STDOUT("SENDING REQUEST: "+JSON.stringify(request));
-        const response = sheets.spreadsheets.values.update(request).data;
-        const responseDate = sheets.spreadsheets.values.update(requestDate).data;
+            //STDOUT("SENDING REQUEST: "+JSON.stringify(request));
+
+        const response = sheets.spreadsheets.values.batchUpdate(batchRequestBody).data;
+
+        //const response = sheets.spreadsheets.values.update(request).data;
+        //const responseDate = sheets.spreadsheets.values.update(requestDate).data;
         if(audioID){
-            sheets.spreadsheets.values.update(requestAudio);
+            //sheets.spreadsheets.values.update(requestAudio);
             STDOUT("ADDED SONG ID");
         }
         // TODO: Change code below to process the `response` object:
