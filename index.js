@@ -420,20 +420,17 @@ function incrementSong(auth, position,newVal,sheets,audioID) {
         resource: {
             valueInputOption: 'RAW',                // How the input data should be interpreted.
             data: [
-                //new play count
-                {
-                    range: 'L' + position,                  // The A1 notation of the values to update.
-                    values: newVal
+                {//new play count
+                    range: 'L' + position,          // The A1 notation of the values to update.
+                    values: newVal                  // The new 2D array value to be set for the cell.
                 },
 
-                //new request date
-                {
+                {//new request date
                     range: 'H' + position,
                     values: [[70*365.25+1.33330-1/24+Date.now()/1000/3600/24]]
                 },
 
-                //new audio ID list
-                {
+                {//new audio ID list
                     range: 'O' + position,
                     values: [[audioID]]
                 }
@@ -442,39 +439,9 @@ function incrementSong(auth, position,newVal,sheets,audioID) {
         auth: auth,
     };
 
-    const request = {
-        spreadsheetId: SONG_SPREADSHEET_ID,     // The ID of the spreadsheet to update.
-        range: 'L' + position,                  // The A1 notation of the values to update.
-        valueInputOption: 'RAW',                // How the input data should be interpreted.
-        resource: {values: newVal},             //data payload
-        auth: auth,
-    };
-    const requestDate = {
-        spreadsheetId: SONG_SPREADSHEET_ID,
-        range: 'H' + position,
-        valueInputOption: 'RAW',
-        resource: {values: [[70*365.25+1.33330-1/24+Date.now()/1000/3600/24]],},
-        auth: auth,
-    };
-
-    //object to update value of audio ID data
-    const requestAudio = {
-        spreadsheetId: SONG_SPREADSHEET_ID,
-        range: 'O' + position,
-        valueInputOption: 'RAW',
-        resource: {values: [[audioID]],},
-        auth: auth,
-    };
-
     try {
-            //STDOUT("SENDING REQUEST: "+JSON.stringify(request));
-
         const response = sheets.spreadsheets.values.batchUpdate(batchRequestBody).data;
-
-        //const response = sheets.spreadsheets.values.update(request).data;
-        //const responseDate = sheets.spreadsheets.values.update(requestDate).data;
         if(audioID){
-            //sheets.spreadsheets.values.update(requestAudio);
             STDOUT("ADDED SONG ID");
         }
         // TODO: Change code below to process the `response` object:
