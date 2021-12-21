@@ -35,6 +35,6 @@ $PackageList | foreach {
         reportGood("Initialized $item package")
     }else{
         reportWarn("Failed to find package: $npmRoot\$item")
-        reportWarn("Please run `npm install $_")
+        reportWarn("Please run 'npm install $_'")
     }
 }
