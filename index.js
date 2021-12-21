@@ -1,10 +1,33 @@
+/**
+ * Name:            index.js
+ *
+ * Author:          github.com/argothenaut
+ *
+ * Date Created:    01/03/2021
+ * Date Modified:   12/20/2021
+ *
+ * Description:
+ *      This program uses Discord and a google spreadsheet as endpoints.
+ *      Inputs from discord messages are parsed into "queries" and executed on the spreadsheet.
+ *
+ */
+
+
+/******************
+ *  Dependencies  *
+ ******************/
+
 const fs = require('fs');
 const readline = require('readline');
 const {google} = require('googleapis');
 const discordie = require("discordie");
 const request = require("request");
 
-//spreadsheet row values
+
+/****************************
+ *  spreadsheet row values  *
+ ****************************/
+
 const AUTHOR_ROW = 0;
 const SONGNAME_ROW = 1;
 const ALBUM_ROW = 2;
@@ -14,8 +37,6 @@ const BPM_ROW = 5;
 const ALBUMPOS_ROW = 6;
 const LASTLISTENED_ROW = 7;
 
-
-
 const PLAYS_ROW = 11;
 const SONGID_ROW = 14;
 
@@ -24,7 +45,10 @@ String.prototype.replaceAll = function(search, replacement) {
     return this.replace(new RegExp(search, "g"), replacement);
 };
 
-//GOOGLE API
+
+/****************
+ *  GOOGLE API  *
+ ****************/
 
 // If modifying these scopes, delete token.json.
 const SCOPES = ['https://www.googleapis.com/auth/spreadsheets'];
@@ -456,8 +480,9 @@ function incrementSong(auth, position,newVal,sheets,audioID) {
 }
 
 
-
-//DISCORD
+/*************
+ *  DISCORD  *
+ *************/
 
 
 const client = new discordie({autoReconnect:true});
