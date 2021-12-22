@@ -12,7 +12,6 @@
  *
  */
 
-
 /******************
  *  Dependencies  *
  ******************/
@@ -50,11 +49,18 @@ String.prototype.replaceAll = function(search, replacement) {
  *  GOOGLE API  *
  ****************/
 
+let sheets;
+let credentials;
+let spreadsheetData;
+let spreadsheetDataTimeStamp = 0;
+let SPREADSHEET_DATA_PUSH_PERIOD_MS = 5000;    //the time interval between checks to push data to the Spreadsheet
+
 //"mutex" indicating that no other function should push/pull the current data in the job batch
-let batchMutex = false;
+let jobBatchMutexIsLocked = false;
 
 //batch of jobs that should be executed regularly whenever the job batch is not empty
 let jobBatch = [ ];
+
 
 // If modifying these scopes, delete token.json.
 const SCOPES = ['https://www.googleapis.com/auth/spreadsheets'];
@@ -86,11 +92,18 @@ fs.readFile('../tokens/googleCredentials.json', (err, content) => {
         STDOUT(JSON.stringify(err));
         return
     }
+    credentials = JSON.parse(content);
     // Authorize a client with credentials, then call the Google Sheets API.
     incrementSongByID = function(audioID,e){
-        authorize(JSON.parse(content),locateSong,audioID,e);
+        authorize(credentials,locateSong,audioID,e);
     };
 });
+
+let pushScheduler = setInterval(()=>{
+    executeBatchUpdate();
+}, SPREADSHEET_DATA_PUSH_PERIOD_MS);
+
+
 
 /**
  * Create an OAuth2 client with the given credentials, and then execute the
@@ -142,6 +155,21 @@ function getNewToken(oAuth2Client, callback) {
     });
 }
 
+
+function fetchFreshSpreadsheetData(auth){
+    if(Date.now() - spreadsheetDataTimeStamp < 5000) return spreadsheetData;
+
+    if(!sheets) sheets = google.sheets({version: 'v4', auth});     //initialize the global variable the first time through
+    sheets.spreadsheets.values.get({
+        spreadsheetId: SONG_SPREADSHEET_ID,
+        range: 'Wheres!A2:O',
+    }, (err, res) => {
+        if (err) return STDOUT('The API returned an error: ' + err);
+        spreadsheetData = res;
+        spreadsheetDataTimeStamp = Date.now();
+    });
+}
+
 /**
  * Prints the names and majors of students in a sample spreadsheet:
  * @param {google.auth.OAuth2} auth The authenticated Google OAuth client.
@@ -149,124 +177,119 @@ function getNewToken(oAuth2Client, callback) {
  * @param e discord event message
  */
 function locateSong(auth,audioID,e) {
-    STDOUT("SCANNING FOR "+audioID);
-    if(audioID.length<4) return STDOUT("Error: audio ID length less than 4 characters. Returning.");
-    const sheets = google.sheets({version: 'v4', auth});
-    let ret = {val:false};
-    sheets.spreadsheets.values.get({
-        spreadsheetId: SONG_SPREADSHEET_ID,
-        range: 'Wheres!A2:O',
-    }, (err, res) => {
-        if (err) return STDOUT('The API returned an error: ' + err);
-        const rows = res.data.values;
+    fetchFreshSpreadsheetData(auth);
+    STDOUT("SCANNING FOR " + audioID);
+    if (audioID.length < 4) return STDOUT("Error: audio ID length less than 4 characters. Returning.");
+    let ret = {val: false};
+    const rows = spreadsheetData.data.values;
 
-        let content = e.message.content;
-        let discord_message_tokens = content.split(" ");
-        if (rows.length) {
-            let i=2;
+    let content = e.message.content;
+    let discord_message_tokens = content.split(" ");
+    if (rows.length) {
+        let i = 2;
 
-            //adjustment for numerical multiplier
-            let INCREMENTBY=1;
-            // console.log("Discord Message Tokens:  ",discord_message_tokens);
-            // console.log("Discord Message Token 0: ",discord_message_tokens[0]);
-            // console.log("Char at [1]:             ",discord_message_tokens[0][1]);
-            if(discord_message_tokens.length>1){
-                if(discord_message_tokens[0]-0){    //act only if first component is a number != 0
+        //adjustment for numerical multiplier
+        let INCREMENTBY = 1;
+        // console.log("Discord Message Tokens:  ",discord_message_tokens);
+        // console.log("Discord Message Token 0: ",discord_message_tokens[0]);
+        // console.log("Char at [1]:             ",discord_message_tokens[0][1]);
+        if (discord_message_tokens.length > 1) {
+            if (discord_message_tokens[0] - 0) {    //act only if first component is a number != 0
 
-                    let r = (audioID.toLowerCase().trim() === content.toLowerCase().trim());
-                    //console.log("r: ",r);
+                let r = (audioID.toLowerCase().trim() === content.toLowerCase().trim());
+                //console.log("r: ",r);
 
-                    INCREMENTBY = discord_message_tokens.shift()-0;
-                    content = discord_message_tokens.join(" ");
-                    if(r) audioID = content.toLowerCase().trim();
-                }
+                INCREMENTBY = discord_message_tokens.shift() - 0;
+                content = discord_message_tokens.join(" ");
+                if (r) audioID = content.toLowerCase().trim();
+            }
+        }
+
+        //adjustments for FIND and SET inputs.
+
+        let INCREMENT = true;
+        let modifier = content.split(" ")[0].toLowerCase(); //first word of content
+        let SET_ID = undefined;
+        if (modifier === "find" || modifier === "set") {
+            INCREMENT = false;
+
+            if (modifier === "set") {
+                if (content.split(" ").length !== 3)
+                    return STDOUT("Expected SET commands to have 3 word inputs of the form `SET M-0420 oue123j0Epo`.");
+                SET_ID = content.split(" ")[1];
+                audioID = content.split(" ")[2];
             }
 
-            //adjustments for FIND and SET inputs.
+        }
 
-            let INCREMENT = true;
-            let modifier = content.split(" ")[0].toLowerCase(); //first word of content
-            let SET_ID = undefined;
-            if(modifier==="find" || modifier==="set"){
-                INCREMENT = false;
+        // Iterate through objects.
+        rows.map((row) => {
 
-                if(modifier==="set"){
-                    if(content.split(" ").length!==3)
-                        return STDOUT("Expected SET commands to have 3 word inputs of the form `SET M-0420 oue123j0Epo`.");
-                    SET_ID = content.split(" ")[1];
-                    audioID= content.split(" ")[2];
-                }
-
+            //handle find-type messages
+            if (modifier === "find") {
+                if (row.join(" - ").toLowerCase().includes(content.substring("find ".length))) STDOUT(row);
+                return;
             }
 
-            // Iterate through objects.
-            rows.map((row) => {
+            //init song name equality
+            let matching = row[SONGNAME_ROW].toLowerCase() === audioID.toLowerCase() || row[MSONGID_ROW] === audioID.toUpperCase();
 
-                //handle find-type messages
-                if(modifier==="find"){
-                    if(row.join(" - ").toLowerCase().includes(content.substring("find ".length))) STDOUT(row);
-                    return;
-                }
+            //check out a song only if the song has a defined URL or the audio ID input matches the song name
+            if (row[SONGID_ROW] || matching || SET_ID) {
 
-                //init song name equality
-                let matching = row[SONGNAME_ROW].toLowerCase()===audioID.toLowerCase() || row[MSONGID_ROW]===audioID.toUpperCase();
+                //behavior for when using the SET modifier
+                if (SET_ID) {
+                    matching = false;
+                    if (row[MSONGID_ROW].toLowerCase() === SET_ID.toLowerCase()) {
+                        STDOUT("Set Match! Data will not be incremented.");
+                        STDOUT(row);
 
-                //check out a song only if the song has a defined URL or the audio ID input matches the song name
-                if(row[SONGID_ROW] || matching || SET_ID) {
+                        //ADD YT ID TO OBJECT
+                        audioID = URLtoID(audioID);
+                        if (row[SONGID_ROW])
+                            audioID = row[SONGID_ROW] + "," + audioID;
+                        incrementSong(auth, i, [[row[PLAYS_ROW] - 0]], sheets, audioID);                           //TODO: don't clear old IDs
+                        return;
+                    }
+                } else {
+                    //normal case behavior to locate matches
+                    if (!matching) {
+                        if (row[SONGID_ROW].indexOf(audioID) > -1) matching = true;
+                        let bits = row[SONGID_ROW].split(",");
+                        for (let j in bits) {
+                            if (matching) break;
 
-                    //behavior for when using the SET modifier
-                    if(SET_ID){
-                        matching=false;
-                        if(row[MSONGID_ROW].toLowerCase()===SET_ID.toLowerCase()){
-                            STDOUT("Set Match! Data will not be incremented.");
-                            STDOUT(row);
-
-                            //ADD YT ID TO OBJECT
-                            audioID = URLtoID(audioID);
-                            if(row[SONGID_ROW])
-                                audioID = row[SONGID_ROW] + ","+audioID;
-                            incrementSong(auth, i,[[row[PLAYS_ROW]-0]],sheets, audioID);                           //TODO: don't clear old IDs
-                            return;
-                        }
-                    }else {
-                        //normal case behavior to locate matches
-                        if (!matching) {
-                            if (row[SONGID_ROW].indexOf(audioID) > -1) matching = true;
-                            let bits = row[SONGID_ROW].split(",");
-                            for (let j in bits) {
-                                if (matching) break;
-
-                                // noinspection JSUnfilteredForInLoop
-                                if (audioID.includes(bits[j]) && bits[j].length > 4) {
-                                    matching = true;
-                                }
+                            // noinspection JSUnfilteredForInLoop
+                            if (audioID.includes(bits[j]) && bits[j].length > 4) {
+                                matching = true;
                             }
                         }
                     }
+                }
 
-                    if (matching) {
-                        if (INCREMENT) {
-                            STDOUT(`Incrementing ${row[AUTHOR_ROW]} - ${row[SONGNAME_ROW]} by ${INCREMENTBY}. New play count: ${row[PLAYS_ROW] - 0 + INCREMENTBY}`);
-                            if (!e.message.deleted) e.message.delete();
-                            ret.val = incrementSong(auth, i, [[((row[PLAYS_ROW] - 0) + INCREMENTBY)]], sheets);
-                        }else{
-                            STDOUT(row);
-                        }
+                if (matching) {
+                    if (INCREMENT) {
+                        STDOUT(`__**Incrementing**__ ${row[AUTHOR_ROW]} - ${row[SONGNAME_ROW]} by ${INCREMENTBY}. New play count: ${row[PLAYS_ROW] - 0 + INCREMENTBY}`);
+                        if (!e.message.deleted) e.message.delete();
+                        ret.val = incrementSong(auth, i, [[((row[PLAYS_ROW] - 0) + INCREMENTBY)]], sheets);
+                    } else {
+                        STDOUT(row);
                     }
                 }
-                i++;
-            });
-
-            if(!ret.val && INCREMENT){
-                if(content.substring(0,4)==="find") return STDOUT("Not querying YouTube on `find`");
-                STDOUT("Failed to find song with YouTube ID "+audioID+" ...\nRequesting Data from YouTube to continue search.");
-                addDatum(auth,audioID,sheets,rows);
             }
-            //('Failed to find '+audioID);
-        } else {
-            STDOUT('Failed on '+audioID);
+            i++;
+        });
+
+        if (!ret.val && INCREMENT) {
+            if (content.substring(0, 4) === "find") return STDOUT("Not querying YouTube on `find`");
+            STDOUT("Failed to find song with YouTube ID " + audioID + " ...\nRequesting Data from YouTube to continue search.");
+            addDatum(auth, audioID, sheets, rows);
         }
-    });
+        //('Failed to find '+audioID);
+    } else {
+        STDOUT('Failed on ' + audioID);
+    }
+
     return ret;
 }
 
@@ -389,7 +412,7 @@ function addDatum(auth,audioID,sheets,rows) {
         if(matches.length === 1){
             let i = matches[0]-0;
             let audioIDChange;
-            STDOUT(`Incrementing best match: ${JSON.stringify(rows[i])}.`);
+            STDOUT(`__**Incrementing**__ best match: ${JSON.stringify(rows[i])}.`);
             if(rows[i][SONGID_ROW]===undefined) audioIDChange=audioID;
             else audioIDChange = rows[i][SONGID_ROW]+","+audioID;
             incrementSong(auth, i+2,[[rows[i][PLAYS_ROW]-0+1]],sheets,audioIDChange);
@@ -401,10 +424,10 @@ function addDatum(auth,audioID,sheets,rows) {
     });
 }
 
-function incrementSong(auth, position,newVal,sheets,audioID) {
-
+function incrementSong(auth, position, newVal, sheets, audioID) {
     //clean up redundancies in audioID during any audioID changes
-    if(audioID) {
+    if(audioID !== undefined) {
+        STDOUT(`Audio ID field set to: ${audioID}`);
         let audioIDlist = audioID.split(",");
         let uniqueIDs = {};
         for (let i in audioIDlist) {
@@ -415,35 +438,36 @@ function incrementSong(auth, position,newVal,sheets,audioID) {
         if (keys.length < audioIDlist.length) STDOUT(`Unique IDs reduced from ${audioIDlist.length} to ${keys.length} IDs.`);
     }
 
-    let batchRequestBody = {
-        spreadsheetId: SONG_SPREADSHEET_ID,
-        resource: {
-            valueInputOption: 'RAW',                // How the input data should be interpreted.
-            data: [
-                {//new play count
-                    range: 'L' + position,          // The A1 notation of the values to update.
-                    values: newVal                  // The new 2D array value to be set for the cell.
-                },
 
-                {//new request date
-                    range: 'H' + position,
-                    values: [[70*365.25+1.33330-1/24+Date.now()/1000/3600/24]]
-                },
+    if(jobBatchMutexIsLocked){
+        setTimeout(() => {
+            incrementSong(auth, position, newVal, sheets, audioID);
+        }, 50);
+        return;
+    }
+    if(audioID)
+        STDOUT(`Enqueued ${audioID}`);
 
-                {//new audio ID list
-                    range: 'O' + position,
-                    values: [[audioID]]
-                }
-            ],
-        },
-        auth: auth,
-    };
+    jobBatchMutexIsLocked = true;
+    jobBatch.push({//new play count
+        range: 'L' + position,          // The A1 notation of the values to update.
+        values: newVal                  // The new 2D array value to be set for the cell.
+    });
+
+    jobBatch.push({//new request date
+            range: 'H' + position,
+            values: [[70*365.25+1.33330-1/24+Date.now()/1000/3600/24]]
+    });
+
+    jobBatch.push({//new audio ID list
+            range: 'O' + position,
+            values: [[audioID]]
+    });
+
+    jobBatchMutexIsLocked = false;
 
     try {
-        const response = sheets.spreadsheets.values.batchUpdate(batchRequestBody).data;
-        if(audioID){
-            STDOUT("ADDED SONG ID");
-        }
+
         // TODO: Change code below to process the `response` object:
         //STDOUT(JSON.stringify(response));
         return true;
@@ -453,6 +477,38 @@ function incrementSong(auth, position,newVal,sheets,audioID) {
 
 }
 
+//periodically execute pushes to the spreadsheet
+function executeBatchUpdate(){
+    if(jobBatchMutexIsLocked) return;
+    jobBatchMutexIsLocked = true;
+    let dataSet = jobBatch;
+    jobBatch = [ ];
+    jobBatchMutexIsLocked = false;
+
+    if(dataSet.length === 0) return;    //nothing to update -> don't bother the API
+
+    const {client_secret, client_id, redirect_uris} = credentials.installed;
+    const oAuth2Client = new google.auth.OAuth2(
+        client_id, client_secret, redirect_uris[0]);
+
+    // Check if we have previously stored a token.
+    oAuth2Client.setCredentials(JSON.parse(fs.readFileSync(TOKEN_PATH).toString()));
+
+
+    let batchRequestBody = {
+        spreadsheetId: SONG_SPREADSHEET_ID,
+        resource: {
+            valueInputOption: 'RAW',                // How the input data should be interpreted.
+            data: dataSet,
+        },
+        auth: oAuth2Client,
+    };
+
+    const response = sheets.spreadsheets.values.batchUpdate(batchRequestBody).data;
+
+    if(response)
+        STDOUT(`Response: ${response}`);
+}
 
 /*************
  *  DISCORD  *
@@ -478,7 +534,12 @@ client.Dispatcher.on(events.GATEWAY_READY, e => {
     STDOUT = function (msg) {
         console.log(msg);
         if(typeof(msg)==="object") msg = JSON.stringify(msg);
-        STDOUTQUEUE.push(msg);
+
+        if(msg) {
+            STDOUTQUEUE.push(msg);
+        }else{
+            console.log("attempted to output: ", msg);
+        }
     };
 
     setInterval(() => {
@@ -513,16 +574,16 @@ client.Dispatcher.on(events.GATEWAY_READY, e => {
 
 client.Dispatcher.on(events.MESSAGE_CREATE, e => {
     //console.log("Received message: "+e.message.content);
-    let auth = e.message.author;
-    //console.log(e.message.author.id);
+    let author = e.message.author;
     //use of this bot is for argo only.
-    if(auth.id !== "162952008712716288" && auth.id !=="263474950181093396")return;
-    //STDOUT("Made it through.");
-    let content = e.message.content;
+    if(author.id !== "162952008712716288" && author.id !=="263474950181093396") return;
+    let contents = e.message.content.split("\n");
 
-    //URL parsing
-
-    return incrementSongByID(URLtoID(content),e);
+    for(let i in contents) {
+        let content = contents[i];
+        //URL parsing
+        setTimeout(() => {incrementSongByID(URLtoID(content), e);}, i * 250);
+    }
 });
 
 function URLtoID(url){
