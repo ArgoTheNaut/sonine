@@ -436,9 +436,8 @@ function incrementSong(auth, position, newVal, sheets, audioID) {
         }, 50);
         return;
     }
-    if(audioID)
-        STDOUT(`Enqueued ${audioID}`);
 
+    //push new data to job batch
     jobBatchMutexIsLocked = true;
     jobBatch.push({//new play count
         range: 'L' + position,          // The A1 notation of the values to update.
@@ -446,31 +445,24 @@ function incrementSong(auth, position, newVal, sheets, audioID) {
     });
 
     jobBatch.push({//new request date
-            range: 'H' + position,
-            values: [[70*365.25+1.33330-1/24+Date.now()/1000/3600/24]]
+        range: 'H' + position,
+        values: [[70 * 365.25 + 1.33330 - 1 / 24 + Date.now() / 1000 / 3600 / 24]]
     });
 
-    jobBatch.push({//new audio ID list
+    if(audioID) {
+        jobBatch.push({//new audio ID list
             range: 'O' + position,
             values: [[audioID]]
-    });
-
-    jobBatchMutexIsLocked = false;
-
-    try {
-
-        // TODO: Change code below to process the `response` object:
-        //STDOUT(JSON.stringify(response));
-        return true;
-    } catch (err) {
-        STDOUT("ERROR:\T"+JSON.stringify(err));
+        });
     }
-
+    jobBatchMutexIsLocked = false;
 }
 
 //periodically execute pushes to the spreadsheet
 function executeBatchUpdate(){
     if(jobBatchMutexIsLocked) return;
+
+    //pull in data from global batch accumulation array
     jobBatchMutexIsLocked = true;
     let dataSet = jobBatch;
     jobBatch = [ ];
@@ -478,11 +470,9 @@ function executeBatchUpdate(){
 
     if(dataSet.length === 0) return;    //nothing to update -> don't bother the API
 
+    //acquire fresh authorization
     const {client_secret, client_id, redirect_uris} = credentials.installed;
-    const oAuth2Client = new google.auth.OAuth2(
-        client_id, client_secret, redirect_uris[0]);
-
-    // Check if we have previously stored a token.
+    const oAuth2Client = new google.auth.OAuth2(client_id, client_secret, redirect_uris[0]);
     oAuth2Client.setCredentials(JSON.parse(fs.readFileSync(TOKEN_PATH).toString()));
 
 
@@ -497,8 +487,7 @@ function executeBatchUpdate(){
 
     const response = sheets.spreadsheets.values.batchUpdate(batchRequestBody).data;
 
-    if(response)
-        STDOUT(`Response: ${response}`);
+    if(response) STDOUT(`Response: ${response}`);
 }
 
 /*************
