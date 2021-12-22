@@ -181,6 +181,10 @@ function locateSong(auth,audioID,e) {
     STDOUT("SCANNING FOR " + audioID);
     if (audioID.length < 4) return STDOUT("Error: audio ID length less than 4 characters. Returning.");
     let ret = {val: false};
+    if(!spreadsheetData){
+        setTimeout(()=>{locateSong(auth, audioID, e)},100);
+        return;
+    }
     const rows = spreadsheetData.data.values;
 
     let content = e.message.content;
@@ -285,7 +289,6 @@ function locateSong(auth,audioID,e) {
             STDOUT("Failed to find song with YouTube ID " + audioID + " ...\nRequesting Data from YouTube to continue search.");
             addDatum(auth, audioID, sheets, rows);
         }
-        //('Failed to find '+audioID);
     } else {
         STDOUT('Failed on ' + audioID);
     }
@@ -304,12 +307,9 @@ function addDatum(auth,audioID,sheets,rows) {
     request.get(params, function(error,response,body){
         if(error) return STDOUT(error);
         if(response.statusCode !== 200) return STDOUT("STATUS CODE: "+response.statusCode);
-        //console.log(body);
         let titleIDX = body.indexOf("<title>")+"<title>".length;
         let targetTitle = body.substring(titleIDX);
-
         targetTitle = targetTitle.substring(0,targetTitle.indexOf("</title>")).toLowerCase();
-        //STDOUT("Found <title> at "+titleIDX);
 
         if(targetTitle.length<8)return STDOUT("Failed to find match.  Bad title.");
         STDOUT("Unformatted target Title: `"+targetTitle+"`");
@@ -322,19 +322,14 @@ function addDatum(auth,audioID,sheets,rows) {
 
 
 
-        //format hypothetical "target" title
-        targetTitle = targetTitle.replace("- youtube","");
-        //targetTitle = endLimit(targetTitle,"|");
-        targetTitle = targetTitle.substring(targetTitle.indexOf("-") + 1);
-        if(targetTitle.includes("(")) {
-            //author = targetTitle.substring(targetTitle.indexOf("-")).trim();
-        }else{
+        targetTitle = targetTitle.replace("- youtube","");        //format hypothetical "target" title
+        targetTitle = targetTitle.substring(targetTitle.indexOf("-") + 1);            //targetTitle = endLimit(targetTitle,"|");
+        if(!targetTitle.includes("(")) {
             let blockStart = body.indexOf("ytd-channel-name");
             let authBlock = body.substring(blockStart);
             authBlock = authBlock.substring(0,authBlock.indexOf("</a>"));
             while(authBlock.includes(">"))
                 authBlock=authBlock.substring(1);
-            //author = authBlock.replaceAll(" - Topic","").trim();
         }
         targetTitle = endLimit(targetTitle,"(");
         targetTitle = endLimit(targetTitle,"[");
@@ -346,13 +341,9 @@ function addDatum(auth,audioID,sheets,rows) {
 
         for(let i in rows){
             if(rows[i][AUTHOR_ROW].length<1)continue;
-            // noinspection JSUnfilteredForInLoop
             let songNameWords = rows[i][SONGNAME_ROW].toLowerCase().split(" ");
             for(let j in songNameWords){
-                if(songNameWords[j]==="the"
-                || songNameWords[j]==="a"
-                || songNameWords[j]==="in"
-                )continue;
+                if(songNameWords[j]==="the" || songNameWords[j]==="in" || songNameWords[j]==="a") continue;
                 console.log(`Testing ${unformattedTitle} for ${songNameWords[j]}`);
                 if(songNameWords[j].length > 2 && unformattedTitle.includes(songNameWords[j])){
                     matches.push(i);
