@@ -1,6 +1,5 @@
 # About
-sonine is a Discord bot frontend that increments select spreadsheet database values based on user commands.
-
+Sonine is a Discord bot frontend that increments select spreadsheet music database values based on user commands.
 
 
 # Getting Started
@@ -10,10 +9,9 @@ sonine is a Discord bot frontend that increments select spreadsheet database val
 4. Download the [Google API token](https://developers.google.com/workspace/guides/create-credentials) to sonine/../tokens/googleCredentials.json
 
 
-
-
 # References
 - Google Sheets API Quickstart
   - https://developers.google.com/sheets/api/quickstart/nodejs
 - Discordie API
   - http://qeled.github.io/discordie/#/docs/GettingStarted.md?_k=zzjqwj
+
