@@ -395,10 +395,8 @@ function addDatum(auth,audioID,sheets,rows) {
 
             }
 
-            matches.sort((a,b)=>{   //todo: improve method of determining closest match
-                console.log(`Comparing ${rows[b.idx][SONGNAME_ROW]}(${b.commonSongNameTerms}) vs ${rows[a.idx][SONGNAME_ROW]}(${a.commonSongNameTerms})`);
-                return b.commonSongNameTerms - a.commonSongNameTerms;// + ((rows[b][AUTHOR_ROW].toLowerCase()===author.toLowerCase()) ? 69:0);
-            });
+            matches.sort((a,b)=>{return b.entryConfidence - a.entryConfidence;});   //sort by greatest common song name terms, non-increasing order
+
             STDOUT(`Closest match: ${rows[matches[0].idx][AUTHOR_ROW]} - ${rows[matches[0].idx][SONGNAME_ROW]}`);
 
             if(matches[0].commonSongNameTerms < rows[matches[0].idx][SONGNAME_ROW].split(" ").length/2){
