@@ -3,8 +3,8 @@
  *
  * Author:          github.com/argothenaut
  *
- * Date Created:    01/03/2021
- * Date Modified:   12/20/2021
+ * Date Created:    2021/01/03
+ * Date Modified:   2022/01/04
  *
  * Description:
  *      This program uses Discord and a google spreadsheet as endpoints.
@@ -21,6 +21,21 @@ const readline = require('readline');
 const {google} = require('googleapis');
 const discordie = require("discordie");
 const request = require("request");
+
+
+/**************
+ *  Dynamics  *
+ **************/
+//"mutex" indicating that no other function should push/pull the current data in the job batch
+let jobBatchMutexIsLocked = false;
+
+//batch of jobs that should be executed regularly whenever the job batch is not empty
+let jobBatch = [ ];
+
+/*****************************
+ *  Configuration Constants  *
+ *****************************/
+const PRINT_CONFIDENCE_THRESHOLD = 1;      //the minimum amount of confidence required to include a song in standard output
 
 
 /****************************
@@ -49,17 +64,6 @@ let credentials;
 let spreadsheetData;
 let spreadsheetDataTimeStamp = 0;
 let SPREADSHEET_DATA_PUSH_PERIOD_MS = 5000;    //the time interval between checks to push data to the Spreadsheet
-
-/*****************************
- *  Configuration Constants  *
- *****************************/
-const PRINT_CONFIDENCE_THRESHOLD = 1;      //the minimum amount of confidence required to include a song in standard output
-
-//"mutex" indicating that no other function should push/pull the current data in the job batch
-let jobBatchMutexIsLocked = false;
-
-//batch of jobs that should be executed regularly whenever the job batch is not empty
-let jobBatch = [ ];
 
 
 // If modifying these scopes, delete token.json.
