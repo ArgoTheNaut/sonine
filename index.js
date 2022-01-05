@@ -275,7 +275,8 @@ function locateSong(auth,audioID,e) {
                     if (INCREMENT) {
                         STDOUT(`__**Incrementing**__ ${row[AUTHOR_ROW]} - ${row[SONGNAME_ROW]} by ${INCREMENTBY}. New play count: ${row[PLAYS_ROW] - 0 + INCREMENTBY}`);
                         if (!e.message.deleted) e.message.delete();
-                        ret.val = incrementSong(auth, i, [[((row[PLAYS_ROW] - 0) + INCREMENTBY)]], sheets);
+                        ret.val = true;
+                        incrementSong(auth, i, [[((row[PLAYS_ROW] - 0) + INCREMENTBY)]], sheets);
                     } else {
                         STDOUT(row);
                     }
