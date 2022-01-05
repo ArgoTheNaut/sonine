@@ -156,8 +156,17 @@ function getNewToken(oAuth2Client, callback) {
 }
 
 
+function spreadsheetDataIsFresh(){
+    return Date.now() - spreadsheetDataTimeStamp < 5000;
+}
+
+let fetchTime = 0;
 function fetchFreshSpreadsheetData(auth){
-    if(Date.now() - spreadsheetDataTimeStamp < 5000) return spreadsheetData;
+    if(spreadsheetDataIsFresh()) return;
+    if(Date.now() - fetchTime < 600){   //avoid multiple fetch requests
+        return;
+    }
+    fetchTime = Date.now();
 
     if(!sheets) sheets = google.sheets({version: 'v4', auth});     //initialize the global variable the first time through
     sheets.spreadsheets.values.get({
@@ -180,7 +189,7 @@ function locateSong(auth,audioID,e) {
     fetchFreshSpreadsheetData(auth);
     if (audioID.length < 4) return STDOUT("Error: audio ID length less than 4 characters. Returning.");
     let ret = {val: false};
-    if(!spreadsheetData){
+    if(!spreadsheetDataIsFresh()){
         setTimeout(()=>{locateSong(auth, audioID, e)},100);
         return;
     }
