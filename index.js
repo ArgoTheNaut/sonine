@@ -46,7 +46,7 @@ String.prototype.replaceAll = function(search, replacement) {
 
 
 /****************
- *  GOOGLE API  *
+ *  Google API  *
  ****************/
 
 let sheets;
