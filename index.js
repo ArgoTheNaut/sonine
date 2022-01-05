@@ -71,8 +71,7 @@ let jobBatch = [ ];
 // If modifying these scopes, delete token.json.
 const SCOPES = ['https://www.googleapis.com/auth/spreadsheets'];
 // The file token.json stores the user's access and refresh tokens, and is
-// created automatically when the authorization flow completes for the first
-// time.
+//  created automatically when the authorization flow completes for the first time.
 const TOKEN_PATH = 'token.json';
 let incrementSongByID = function (songID,e){
     //loops prompt if google API not resolved.
@@ -82,13 +81,6 @@ let incrementSongByID = function (songID,e){
     },1000);
 };
 
-let STDOUT = function (songID){
-    //loops prompt if google API not resolved.
-    setTimeout(()=>{
-        STDOUT(songID);
-        console.log("Awaiting to Output "+songID);
-    },1000);
-};
 
 let SONG_SPREADSHEET_ID = "1BFpRiSj_AS1qmwJHGODsWHeDJ-6kLQ3Sp51Uh2I9i3g";
 // Load client secrets from a local file.
@@ -105,11 +97,20 @@ fs.readFile('../tokens/googleCredentials.json', (err, content) => {
     };
 });
 
-let pushScheduler = setInterval(()=>{
-    executeBatchUpdate();
-}, SPREADSHEET_DATA_PUSH_PERIOD_MS);
+
+/**
+ * Periodically check if there are any song entries enqueued to be pushed as a batch out to the google sheet
+ */
+let pushScheduler = setInterval(()=>{executeBatchUpdate();}, SPREADSHEET_DATA_PUSH_PERIOD_MS);
 
 
+let STDOUT = function (songID){
+    //loops prompt if google API not resolved.
+    setTimeout(()=>{
+        STDOUT(songID);
+        console.log("Awaiting to Output "+songID);
+    },1000);
+};
 
 /**
  * Create an OAuth2 client with the given credentials, and then execute the
@@ -385,16 +386,16 @@ function addDatum(auth,audioID,sheets,rows) {
                 }
 
                 if(unformattedTitle.includes(rows[idx][SONGNAME_ROW].toLowerCase())){
-                    matches[i].entryConfidence+=20;
+                    matches[i].entryConfidence+=20;                                 //arbitrary weight
                 }
 
                 if(unformattedTitle.includes(rows[idx][AUTHOR_ROW].toLowerCase())){
-                    matches[i].entryConfidence+=15;
+                    matches[i].entryConfidence+=15;                                 //arbitrary weight
                 }
 
                 //Where the album title exists and is in the song title, add heavy weight to such cases
                 if(rows[idx][ALBUM_ROW].toLowerCase().length && unformattedTitle.includes(rows[idx][ALBUM_ROW].toLowerCase())){
-                    matches[i].entryConfidence+=25;
+                    matches[i].entryConfidence+=25;                                 //arbitrary weight
                 }
 
                 //constrain to >1 terms to try to filter output stream quality a little bit
