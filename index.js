@@ -178,13 +178,13 @@ function fetchFreshSpreadsheetData(auth){
  */
 function locateSong(auth,audioID,e) {
     fetchFreshSpreadsheetData(auth);
-    STDOUT("SCANNING FOR " + audioID);
     if (audioID.length < 4) return STDOUT("Error: audio ID length less than 4 characters. Returning.");
     let ret = {val: false};
     if(!spreadsheetData){
         setTimeout(()=>{locateSong(auth, audioID, e)},100);
         return;
     }
+    STDOUT(`> Processing  \`${audioID}\``);
     const rows = spreadsheetData.data.values;
 
     let content = e.message.content;
