@@ -521,7 +521,7 @@ const events = discordie.Events;
 
 var discordTokenFilePath = "..\\tokens\\SonineDiscord.txt";
 if(!fs.existsSync(discordTokenFilePath)){
-    console.error(`Missing discord bot access token.  Please acquire the token at <URL> and save the token under ${discordTokenFilePath}`);
+    console.error(`Missing discord bot access token.  Please acquire the token at https://discord.com/developers/applications and save the token to ${discordTokenFilePath}`);
     process.exit(8);
 }
 const token = fs.readFileSync(discordTokenFilePath).toString();
