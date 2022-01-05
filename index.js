@@ -40,11 +40,6 @@ const PLAYS_ROW = 11;
 const SONGID_ROW = 14;
 
 
-String.prototype.replaceAll = function(search, replacement) {
-    return this.replace(new RegExp(search, "g"), replacement);
-};
-
-
 /****************
  *  Google API  *
  ****************/
@@ -356,7 +351,7 @@ function addDatum(auth,audioID,sheets,rows, INCREMENTBY) {
         let matches = [];
 
         for(let i in rows){
-            if(rows[i][AUTHOR_ROW].length<1)continue;
+            if(rows[i][AUTHOR_ROW].length<1) continue;
             let songNameWords = rows[i][SONGNAME_ROW].toLowerCase().split(" ");
             for(let j in songNameWords){
                 if(songNameWords[j]==="the" || songNameWords[j]==="in" || songNameWords[j]==="a") continue;
