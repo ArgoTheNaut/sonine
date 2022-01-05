@@ -501,6 +501,9 @@ function executeBatchUpdate(){
     if(response) STDOUT(`Response: ${response}`);
 }
 
+
+
+
 /*************
  *  DISCORD  *
  *************/
