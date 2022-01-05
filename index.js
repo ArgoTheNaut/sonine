@@ -362,36 +362,38 @@ function addDatum(auth,audioID,sheets,rows) {
             }
         }
 
-        STDOUT("Formatted:\r\n author: `"+unformattedTitle+"`\r\ntitle: `"+targetTitle+"`");
+        STDOUT(`Formatted:\r\n> author: \`${unformattedTitle}\`\r\n> title: \`${targetTitle}\``);
         STDOUT(`Found ${matches.length} potential matches`);
 
         if(matches.length>1){
             for(let i in matches){  //fuzzy evaluation of closest match
                 let idx = matches[i];
-                let songNameWords = rows[matches[i]][SONGNAME_ROW].toLowerCase().split(" ");
-                matches[i] = {idx:idx};
-                matches[i].commonSongNameTerms = 0;
+                let songNameWords = rows[idx][SONGNAME_ROW].toLowerCase().split(" ");
+                matches[i] = {
+                    idx:idx,
+                    entryConfidence:0
+                };
                 for(let j in songNameWords){
                     if(unformattedTitle.includes(songNameWords[j]))
-                        matches[i].commonSongNameTerms++;
+                        matches[i].entryConfidence++;
                 }
 
                 if(unformattedTitle.includes(rows[idx][SONGNAME_ROW].toLowerCase())){
-                    matches[i].commonSongNameTerms+=20;
+                    matches[i].entryConfidence+=20;
                 }
+
                 if(unformattedTitle.includes(rows[idx][AUTHOR_ROW].toLowerCase())){
-                    matches[i].commonSongNameTerms+=15;
-                }else{
-                    //STDOUT(`${author} does not contain ${rows[idx][AUTHOR_ROW]}`);
+                    matches[i].entryConfidence+=15;
                 }
+
                 //Where the album title exists and is in the song title, add heavy weight to such cases
                 if(rows[idx][ALBUM_ROW].toLowerCase().length && unformattedTitle.includes(rows[idx][ALBUM_ROW].toLowerCase())){
-                    matches[i].commonSongNameTerms+=25;
+                    matches[i].entryConfidence+=25;
                 }
 
                 //constrain to >1 terms to try to filter output stream quality a little bit
-                if(matches[i].commonSongNameTerms > 1)
-                    STDOUT(`Similarity score: ${matches[i].commonSongNameTerms}. Similarity at index ${idx} ${JSON.stringify(rows[idx])}.`);
+                if(matches[i].entryConfidence > 1)
+                    STDOUT(`Similarity score: ${matches[i].entryConfidence}. Similarity at index ${idx} ${JSON.stringify(rows[idx])}.`);
 
             }
 
@@ -399,13 +401,14 @@ function addDatum(auth,audioID,sheets,rows) {
 
             STDOUT(`Closest match: ${rows[matches[0].idx][AUTHOR_ROW]} - ${rows[matches[0].idx][SONGNAME_ROW]}`);
 
-            if(matches[0].commonSongNameTerms < rows[matches[0].idx][SONGNAME_ROW].split(" ").length/2){
+            //if the song name term
+            if(matches[0].entryConfidence < rows[matches[0].idx][SONGNAME_ROW].split(" ").length/2){
                 STDOUT("INSUFFICIENT CONFIDENCE IN ANSWER.  PLEASE USE SET TO MANUALLY ADD THIS DATUM.");
                 STDOUT(JSON.stringify(rows[matches[0].idx]));
                 return;
             }
 
-            matches = [matches[0].idx];
+            matches = [matches[0].idx]; //reduce evaluated data down to the array index of the best matching entry
         }
 
         if(matches.length === 1){
