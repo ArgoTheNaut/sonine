@@ -354,7 +354,7 @@ function addDatum(auth,audioID,sheets,rows) {
             let songNameWords = rows[i][SONGNAME_ROW].toLowerCase().split(" ");
             for(let j in songNameWords){
                 if(songNameWords[j]==="the" || songNameWords[j]==="in" || songNameWords[j]==="a") continue;
-                console.log(`Testing ${unformattedTitle} for ${songNameWords[j]}`);
+
                 if(songNameWords[j].length > 2 && unformattedTitle.includes(songNameWords[j])){
                     matches.push(i);
                     break; //should break j loop
