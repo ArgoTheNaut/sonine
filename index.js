@@ -405,16 +405,17 @@ function addDatum(auth,audioID,sheets,rows, INCREMENTBY) {
 
             matches.sort((a,b)=>{return b.entryConfidence - a.entryConfidence;});   //sort by greatest common song name terms, non-increasing order
 
-            STDOUT(`Closest match: ${rows[matches[0].idx][AUTHOR_ROW]} - ${rows[matches[0].idx][SONGNAME_ROW]}`);
+            let bmi = matches[0].idx;       //best match index
+            STDOUT(`Closest match: ${rows[bmi][AUTHOR_ROW]} - ${rows[bmi][SONGNAME_ROW]}`);
 
             //if the song name term
-            if(matches[0].entryConfidence < rows[matches[0].idx][SONGNAME_ROW].split(" ").length/2){
-                STDOUT("INSUFFICIENT CONFIDENCE IN ANSWER.  PLEASE USE SET TO MANUALLY ADD THIS DATUM.");
-                STDOUT(JSON.stringify(rows[matches[0].idx]));
+            if(matches[0].entryConfidence < rows[bmi][SONGNAME_ROW].split(" ").length/2){
+                STDOUT("```Insufficient confidence in this result. Please use SET to manually add this entry.```");
+                STDOUT(JSON.stringify(rows[bmi]));
                 return;
             }
 
-            matches = [matches[0].idx]; //reduce evaluated data down to the array index of the best matching entry
+            matches = [bmi]; //reduce evaluated data down to the array index of the best matching entry
         }
 
         if(matches.length === 1){
@@ -581,7 +582,7 @@ client.Dispatcher.on(events.MESSAGE_CREATE, e => {
 
     for(let i in contents) {
         let content = contents[i];
-        //URL parsing
+        //buffer the queue of songs to be deployed at 4 songs/sec
         setTimeout(() => {incrementSongByID(URLtoID(content), e);}, i * 250);
     }
 });
