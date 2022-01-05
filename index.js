@@ -55,7 +55,6 @@ let spreadsheetData;
 let spreadsheetDataTimeStamp = 0;
 let SPREADSHEET_DATA_PUSH_PERIOD_MS = 5000;    //the time interval between checks to push data to the Spreadsheet
 
-
 /*****************************
  *  Configuration Constants  *
  *****************************/
@@ -304,7 +303,7 @@ function locateSong(auth,audioID,e) {
         if (!ret.val && INCREMENT) {
             if (content.substring(0, 4) === "find") return STDOUT("Not querying YouTube on `find`");
             STDOUT("Failed to find song with YouTube ID " + audioID + " ...\nRequesting Data from YouTube to continue search.");
-            addDatum(auth, audioID, sheets, rows);
+            addDatum(auth, audioID, sheets, rows, INCREMENTBY);
         }
     } else {
         STDOUT('Failed on data retrieval for ' + audioID);
@@ -314,7 +313,7 @@ function locateSong(auth,audioID,e) {
 }
 
 //TODO handle songs which don't currently have their YT ID registered
-function addDatum(auth,audioID,sheets,rows) {
+function addDatum(auth,audioID,sheets,rows, INCREMENTBY) {
     let params={
         uri: "https://www.youtube.com/watch?v="+audioID,
         timeout: 2000,
@@ -424,7 +423,7 @@ function addDatum(auth,audioID,sheets,rows) {
             STDOUT(`__**Incrementing**__ best match: ${JSON.stringify(rows[i])}.`);
             if(rows[i][SONGID_ROW]===undefined) audioIDChange=audioID;
             else audioIDChange = rows[i][SONGID_ROW]+","+audioID;
-            incrementSong(auth, i+2,[[rows[i][PLAYS_ROW]-0+1]],sheets,audioIDChange);
+            incrementSong(auth, i+2,[[Number(rows[i][PLAYS_ROW]) + INCREMENTBY]], sheets, audioIDChange);
         }
 
         if(matches.length === 0){
