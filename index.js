@@ -55,6 +55,12 @@ let spreadsheetData;
 let spreadsheetDataTimeStamp = 0;
 let SPREADSHEET_DATA_PUSH_PERIOD_MS = 5000;    //the time interval between checks to push data to the Spreadsheet
 
+
+/*****************************
+ *  Configuration Constants  *
+ *****************************/
+const PRINT_CONFIDENCE_THRESHOLD = 1;      //the minimum amount of confidence required to include a song in standard output
+
 //"mutex" indicating that no other function should push/pull the current data in the job batch
 let jobBatchMutexIsLocked = false;
 
@@ -392,7 +398,7 @@ function addDatum(auth,audioID,sheets,rows) {
                 }
 
                 //constrain to >1 terms to try to filter output stream quality a little bit
-                if(matches[i].entryConfidence > 1)
+                if(matches[i].entryConfidence > PRINT_CONFIDENCE_THRESHOLD)
                     STDOUT(`Similarity score: ${matches[i].entryConfidence}. Similarity at index ${idx} ${JSON.stringify(rows[idx])}.`);
 
             }
