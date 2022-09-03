@@ -22,6 +22,12 @@ const {google} = require('googleapis');
 const discordie = require("discordie");
 const request = require("request");
 
+/*********************************
+ *  User-specific Configuration  *
+ *********************************/
+
+
+
 
 /**************
  *  Dynamics  *
@@ -71,10 +77,10 @@ const SCOPES = ['https://www.googleapis.com/auth/spreadsheets'];
 // The file token.json stores the user's access and refresh tokens, and is
 //  created automatically when the authorization flow completes for the first time.
 const TOKEN_PATH = 'token.json';
-let incrementSongByID = function (songID,e){
+let incrementSongByID = function (songID,e, deleteMessage){
     //loops prompt if google API not resolved.
     setTimeout(()=>{
-        incrementSongByID(songID,e);
+        incrementSongByID(songID,e,deleteMessage);
         STDOUT("Awaiting to Process "+songID);
     },1000);
 };
@@ -90,8 +96,8 @@ fs.readFile('../tokens/googleCredentials.json', (err, content) => {
     }
     credentials = JSON.parse(content);
     // Authorize a client with credentials, then call the Google Sheets API.
-    incrementSongByID = function(audioID,e){
-        authorize(credentials,locateSong,audioID,e);
+    incrementSongByID = function(audioID,e,deleteMessage){
+        authorize(credentials,locateSong,audioID,e, deleteMessage);
     };
 });
 
@@ -116,7 +122,7 @@ let STDOUT = function (songID){
  * @param {Object} credentials The authorization client credentials.
  * @param {function} callback The callback to call with the authorized client.
  */
-function authorize(credentials, callback, audioID,e) {
+function authorize(credentials, callback, audioID,e, deleteMessage) {
     const {client_secret, client_id, redirect_uris} = credentials.installed;
     const oAuth2Client = new google.auth.OAuth2(
         client_id, client_secret, redirect_uris[0]);
@@ -125,7 +131,7 @@ function authorize(credentials, callback, audioID,e) {
     fs.readFile(TOKEN_PATH, (err, token) => {
         if (err) return getNewToken(oAuth2Client, callback);
         oAuth2Client.setCredentials(JSON.parse(token));
-        callback(oAuth2Client, audioID,e);
+        callback(oAuth2Client, audioID,e, deleteMessage);
     });
 }
 
@@ -166,9 +172,10 @@ function spreadsheetDataIsFresh(){
 }
 
 let fetchTime = 0;
+let redundancyAvoidanceWindowMS = 600;
 function fetchFreshSpreadsheetData(auth){
     if(spreadsheetDataIsFresh()) return;
-    if(Date.now() - fetchTime < 600){   //avoid multiple fetch requests
+    if(Date.now() - fetchTime < redundancyAvoidanceWindowMS){   //avoid multiple fetch requests
         return;
     }
     fetchTime = Date.now();
@@ -178,7 +185,17 @@ function fetchFreshSpreadsheetData(auth){
         spreadsheetId: SONG_SPREADSHEET_ID,
         range: 'Wheres!A2:O',
     }, (err, res) => {
-        if (err) return STDOUT('The API returned an error: ' + err);
+        if (err) {
+            /**
+             * Known Errors
+             *
+             * The invalid_grant error may be caused by token.js being out of date.
+             * To fix this problem, delete the current token.js file and rerun the program.
+             */
+            STDOUT('The API returned an error: ' + err);
+            console.log(err);
+            process.exit(err.code);
+        }
         spreadsheetData = res;
         spreadsheetDataTimeStamp = Date.now();
     });
@@ -190,12 +207,13 @@ function fetchFreshSpreadsheetData(auth){
  * @param audioID
  * @param e discord event message
  */
-function locateSong(auth,audioID,e) {
+function locateSong(auth,audioID,e, deleteSong) {
     fetchFreshSpreadsheetData(auth);
+    if (!audioID) return STDOUT("Error: audioID is undefined");
     if (audioID.length < 4) return STDOUT("Error: audio ID length less than 4 characters. Returning.");
     let ret = {val: false};
     if(!spreadsheetDataIsFresh()){
-        setTimeout(()=>{locateSong(auth, audioID, e)},100);
+        setTimeout(()=>{locateSong(auth, audioID, e, deleteSong)},100);
         return;
     }
     STDOUT(`> Processing  \`${audioID}\``);
@@ -239,6 +257,8 @@ function locateSong(auth,audioID,e) {
             }
 
         }
+
+        let deletedSong = !deleteSong;    // indicator for albums/playlists to not delete more than once
 
         // Iterate through objects.
         rows.map((row) => {
@@ -288,7 +308,14 @@ function locateSong(auth,audioID,e) {
                 if (matching) {
                     if (INCREMENT) {
                         STDOUT(`__**Incrementing**__ ${row[AUTHOR_ROW]} - ${row[SONGNAME_ROW]} by ${INCREMENTBY}. New play count: ${row[PLAYS_ROW] - 0 + INCREMENTBY}`);
-                        if (!e.message.deleted) e.message.delete();
+                        if (!deletedSong && !e.message.deleted) {
+                            deletedSong = true;
+                            try {
+                                e.message.delete();
+                            }catch (e) {
+                                console.log("errored on deleting input message", audioID);
+                            }
+                        }
                         ret.val = true;
                         incrementSong(auth, i, [[((row[PLAYS_ROW] - 0) + INCREMENTBY)]], sheets);
                     } else {
@@ -514,11 +541,11 @@ function executeBatchUpdate(){
  *  DISCORD  *
  *************/
 
-
+const DISCORD_MAX_MESSAGE_LENGTH = 2000;
 const client = new discordie({autoReconnect:true});
 const events = discordie.Events;
 
-var discordTokenFilePath = "..\\tokens\\SonineDiscord.txt";
+let discordTokenFilePath = "..\\tokens\\SonineDiscord.txt";
 if(!fs.existsSync(discordTokenFilePath)){
     console.error(`Missing discord bot access token.  Please acquire the token at https://discord.com/developers/applications and save the token to ${discordTokenFilePath}`);
     process.exit(8);
@@ -545,16 +572,16 @@ client.Dispatcher.on(events.GATEWAY_READY, e => {
     setInterval(() => {
         if(STDOUTQUEUE.length){
             let msg = STDOUTQUEUE.shift();
-            while(msg.length < 2000 && STDOUTQUEUE.length){
+            while(msg.length < DISCORD_MAX_MESSAGE_LENGTH && STDOUTQUEUE.length){
                 msg += "\r\n\r\n"+STDOUTQUEUE.shift();
             }
 
-            if(msg.length>2000){
-                let remnant = msg.substring(2000);
+            if(msg.length>DISCORD_MAX_MESSAGE_LENGTH){
+                let remnant = msg.substring(DISCORD_MAX_MESSAGE_LENGTH);
                 while(remnant.length){
-                    client.Channels.get("789915834385825802").sendMessage(msg.substring(0,2000));
+                    client.Channels.get("789915834385825802").sendMessage(msg.substring(0, DISCORD_MAX_MESSAGE_LENGTH));
                     msg = remnant;
-                    remnant = msg.substring(2000);
+                    remnant = msg.substring(DISCORD_MAX_MESSAGE_LENGTH);
                 }
             }
             client.Channels.get("789915834385825802").sendMessage(msg);
@@ -582,7 +609,7 @@ client.Dispatcher.on(events.MESSAGE_CREATE, e => {
     for(let i in contents) {
         let content = contents[i];
         //buffer the queue of songs to be deployed at 4 songs/sec
-        setTimeout(() => {incrementSongByID(URLtoID(content), e);}, i * 250);
+        setTimeout(() => {incrementSongByID(URLtoID(content), e, i===0);}, i * 250); //deleteMessage should only apply for the first link in the message
     }
 });
 
